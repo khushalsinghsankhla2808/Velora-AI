@@ -1,7 +1,9 @@
 import React from "react";
 import { motion } from "motion/react";
+import { useNavigate } from "react-router-dom";
 
 const Navbar = () => {
+  const navigate = useNavigate()
   return (
     <>
       <motion.div className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-black/40 border-b border-white/10">
@@ -17,7 +19,9 @@ const Navbar = () => {
         <div>
             {/* right side */}
             <div className="flex items-center gap-5">
-                <button className="">
+                <button 
+                onClick={()=>navigate('/pricing')}
+                className="hidden md:block text-sm text-zinc-400 hover:text-white transition">
                     Pricing
                 </button>
             </div>
