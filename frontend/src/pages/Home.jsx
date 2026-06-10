@@ -1,6 +1,13 @@
 import React from "react";
 import Navbar from "../components/Navbar";
-import { ArrowRight, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  Download,
+  Layout,
+  LayoutTemplate,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { motion } from "framer-motion";
 
 const Home = () => {
@@ -43,7 +50,7 @@ const Home = () => {
             transition={{ duration: 0.8 }}
             className="text-5xl md:text-7xl font-bold leading-tight"
           >
-            Build Websites with <br />
+            Create Stunning Websites with <br />
             <span className="bg-linear-to-r from-purple-700 to-indigo-500 bg-clip-text text-transparent">
               AI in Seconds
             </span>
@@ -56,8 +63,8 @@ const Home = () => {
             transition={{ duration: 0.9 }}
             className="max-w-2xl mx-auto mt-6 text-lg text-gray-300"
           >
-            Generate stunning, reponsive, websites instantly using AI. No coding
-            requries. Perfect for Startups, Creators and Freelancers.
+            Create stunning, fully responsive websites with AI, no coding
+            needed. Built for startups, creators, and freelancers.
           </motion.p>
 
           {/* Buttons */}
@@ -75,8 +82,33 @@ const Home = () => {
             </button>
           </motion.div>
 
-
           {/* Features Card */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20">
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur hover:border-indigo-500 transition">
+              <Zap className="text-yellow-400 mb-4" />
+              <h3 className="font-semibold text-lg mb-2">Instant Generation</h3>
+              <p className="text-sm text-gray-400 ">
+                Describe your vision and let AI build a professional website
+                automatically.
+              </p>
+            </div>
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur hover:border-indigo-500 transition">
+              <LayoutTemplate className="text-indigo-400 mb-4" />
+              <h3 className="font-semibold text-lg mb-2">Responsive Layout</h3>
+              <p className="text-sm text-gray-400 ">
+                Responsive designs that look sharp on phones, tablets, laptops,
+                and desktops.
+              </p>
+            </div>
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur hover:border-indigo-500 transition">
+              <Download className="text-green-400 mb-4" />
+              <h3 className="font-semibold text-lg mb-2">Export Code</h3>
+              <p className="text-sm text-gray-400 ">
+                Get lightweight, well structured HTML, CSS, and JS generated
+                instantly.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
     </>
