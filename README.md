@@ -49,19 +49,19 @@
 ## 📸 Screenshots
 
 ### 🏠 Landing Page
-![Landing Page](./screenshots/landing-page.png)
+![Landing Page](<img width="1918" height="1078" alt="Image" src="https://github.com/user-attachments/assets/16f6d3a2-664d-4998-a178-4d16a001a769" />)
 
 ### 📊 Dashboard
-![Dashboard](./screenshots/dashboard.png)
+![Dashboard](<img width="1918" height="1078" alt="Image" src="https://github.com/user-attachments/assets/3171a4be-6bf3-4092-821f-add147a5ef95" />)
 
 ### ✍️ Website Generator
-![Website Generator](./screenshots/generator.png)
+![Website Generator](<img width="1918" height="1078" alt="Image" src="https://github.com/user-attachments/assets/16335d27-4898-4a5c-b11c-d2c5b495c6d3" />)
 
 ### 💳 Pricing Page
-![Pricing Page](./screenshots/pricing.png)
+![Pricing Page](<img width="1918" height="1078" alt="Image" src="https://github.com/user-attachments/assets/36fd8b93-bce2-4e92-9cb3-1ab371fd51e5" />)
 
 ### 💰 Razorpay Payment
-![Razorpay Payment](./screenshots/razorpay.png)
+![Razorpay Payment](<img width="1918" height="1078" alt="Image" src="https://github.com/user-attachments/assets/ab9f4bfe-eeca-4e75-b66b-88a903065260" />)
 
 ---
 
