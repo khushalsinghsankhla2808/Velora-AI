@@ -49,7 +49,7 @@
 ## 📸 Screenshots
 
 ### 🏠 Landing Page
-<img width="1918" height="1078" alt="Image" src="https://github.com/user-attachments/assets/16f6d3a2-664d-4998-a178-4d16a001a769" />)
+<img width="1918" height="1078" alt="Image" src="https://github.com/user-attachments/assets/16f6d3a2-664d-4998-a178-4d16a001a769" />
 
 ### 📊 Dashboard
 <img width="1918" height="1078" alt="Image" src="https://github.com/user-attachments/assets/3171a4be-6bf3-4092-821f-add147a5ef95" />
