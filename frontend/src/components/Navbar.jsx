@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { Coins } from "lucide-react";
-import LoginModel from "./LoginModel";
+import LoginModel from "./LoginModal";
 import { useSelector, useDispatch } from "react-redux";
 
 import axios from "axios";

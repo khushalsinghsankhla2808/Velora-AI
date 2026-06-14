@@ -28,7 +28,7 @@ export const googleAuth = async (req, res) => {
     // FIX: use correct env key
     // (change JWT_SECRET if your .env uses different name)
     // =======================
-    const secret = process.env.SECRET_KEY;
+    const secret = process.env.JWT_SECRET;
 
     if (!secret) {
       throw new Error("JWT_SECRET missing in .env file");

@@ -40,7 +40,7 @@ const Home = () => {
             className="inline-flex items-center gap-2 px-4 py-2 mb-8 border border-white/10 rounded-full bg-white/5 backdrop-blur"
           >
             <Sparkles className="w-4 h-4 text-purple-400" />
-            <span className="tsxt-sm text-gray-300">AI Website Builder</span>
+            <span className="text-sm text-gray-300">AI Website Builder</span>
           </motion.div>
 
           {/* heading */}

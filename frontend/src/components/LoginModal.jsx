@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { Sparkles, X } from "lucide-react";
 import { signInWithPopup } from "firebase/auth";
-import { auth, provider } from "../../firebase";
+import { auth, provider } from "../firebase";
 import axios from "axios";
 import { useDispatch } from "react-redux";
 import { setUserData } from "../redux/userSlice";
