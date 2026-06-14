@@ -391,12 +391,12 @@ git push origin feature/AmazingFeature
     <img src="https://img.shields.io/badge/GitHub-khushalsinghsankhla2808-181717?style=for-the-badge&logo=github" />
   </a>
   &nbsp;
-  <a href="https://www.linkedin.com/in/khushal-sankhla-2808">
-    <img src="https://img.shields.io/badge/LinkedIn-Khushal_Sankhla-0077B5?style=for-the-badge&logo=linkedin" />
+  <a href="https://www.linkedin.com/in/khushal-singh-sankhla/">
+    <img src="https://img.shields.io/badge/LinkedIn-Khushal_Singh_Sankhla-0077B5?style=for-the-badge&logo=linkedin" />
   </a>
 </p>
 
-📧 khushalsinghsankhla203@gmail.com
+📧 khushalsinghsankhla203@gmail.com &nbsp;|&nbsp; 📧 khushalsankhla2808@gmail.com
 
 </div>
 
