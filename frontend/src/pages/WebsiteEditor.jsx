@@ -1,14 +1,7 @@
 // PATH: frontend/src/pages/WebsiteEditor.jsx
 import React, { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
-import {
-  Code2,
-  MessageSquare,
-  Monitor,
-  Rocket,
-  Send,
-  X,
-} from "lucide-react";
+import { Code2, MessageSquare, Monitor, Rocket, Send, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
@@ -66,10 +59,7 @@ const WebsiteEditor = () => {
         { withCredentials: true },
       );
 
-      setMessages((m) => [
-        ...m,
-        { role: "ai", content: result.data.message },
-      ]);
+      setMessages((m) => [...m, { role: "ai", content: result.data.message }]);
       setCode(result.data.code);
       dispatch(
         setUserData({ ...userData, credits: result.data.remainingCredits }),
@@ -113,15 +103,9 @@ const WebsiteEditor = () => {
   }, [updateLoading]);
 
   useEffect(() => {
-    if (!iframeRef.current || !code) {
-      return undefined;
-    }
+    if (!iframeRef.current || !code) return;
 
-    const blob = new Blob([code], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    iframeRef.current.src = url;
-
-    return () => URL.revokeObjectURL(url);
+    iframeRef.current.srcdoc = code;
   }, [code]);
 
   useEffect(() => {
@@ -196,9 +180,7 @@ const WebsiteEditor = () => {
   const InputArea = () => (
     <div className="p-3 border-t border-white/10">
       <label className="mb-2 block">
-        <span className="mb-1 block text-xs text-zinc-400">
-          Code Style
-        </span>
+        <span className="mb-1 block text-xs text-zinc-400">Code Style</span>
         <select
           value={codePreference}
           onChange={(e) => setCodePreference(e.target.value)}
@@ -220,8 +202,9 @@ const WebsiteEditor = () => {
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          rows={1}
-          className="resize-none flex-1 rounded-2xl px-4 py-3 bg-white/5 border border-white/10 outline-none text-sm"
+          disabled={updateLoading}
+          rows={3}
+          className="resize-none flex-1 rounded-2xl px-4 py-3 bg-white/5 border border-white/10 outline-none text-sm text-white disabled:opacity-50"
           placeholder="Ask AI to update this website..."
         />
         <button
@@ -237,13 +220,13 @@ const WebsiteEditor = () => {
 
   return (
     <div className="h-screen w-screen flex bg-black text-white overflow-hidden">
-      <aside className="hidden lg:flex w-95 border-r border-white/10 bg-black/80 flex-col">
+      <aside className="hidden lg:flex w-380px border-r border-white/10 bg-black/80 flex-col relative z-50">
         <Header />
         <MessagesArea />
         <InputArea />
       </aside>
 
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col relative">
         <div className="h-14 px-4 flex justify-between items-center border-b border-white/10 bg-black/80">
           <p className="text-xs text-zinc-400">Live Preview</p>
           <div className="flex items-center gap-2">
@@ -278,7 +261,7 @@ const WebsiteEditor = () => {
 
         <iframe
           ref={iframeRef}
-          className="flex-1 w-full bg-white"
+          className="flex-1 w-full bg-white relative z-0"
           sandbox="allow-scripts allow-forms"
           title={website.title}
         />
