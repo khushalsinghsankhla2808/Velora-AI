@@ -394,9 +394,14 @@ git push origin feature/AmazingFeature
   <a href="https://www.linkedin.com/in/khushal-singh-sankhla/">
     <img src="https://img.shields.io/badge/LinkedIn-Khushal_Singh_Sankhla-0077B5?style=for-the-badge&logo=linkedin" />
   </a>
+   <a href="mailto:khushalsinghsankhla203@gmail.com">
+    <img src="https://img.shields.io/badge/Email-Contact-D14836?style=for-the-badge&logo=gmail&logoColor=white" />
+  </a>
+   <a href="mailto: khushalsankhla2808@gmail.com">
+    <img src="https://img.shields.io/badge/Email-Contact-D14836?style=for-the-badge&logo=gmail&logoColor=white" />
+  </a>
 </p>
 
-📧 khushalsinghsankhla203@gmail.com &nbsp;|&nbsp; 📧 khushalsankhla2808@gmail.com
 
 </div>
 
