@@ -1,35 +1,60 @@
-import React from "react";
+// PATH: frontend/src/components/LoginModal.jsx
+import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Sparkles, X } from "lucide-react";
+import { Loader2, Sparkles, X } from "lucide-react";
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../firebase";
 import axios from "axios";
 import { useDispatch } from "react-redux";
 import { setUserData } from "../redux/userSlice";
 
-const LoginModel = ({ open, onClose }) => {
+const LoginModal = ({ open, onClose }) => {
   const dispatch = useDispatch();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const getAuthErrorMessage = (error) => {
+    const firebaseCode = error.code;
+    const backendMessage = error.response?.data?.message;
+
+    if (firebaseCode === "auth/unauthorized-domain") {
+      return "This domain is not allowed in Firebase. Open http://localhost:5173 or add 127.0.0.1 in Firebase Auth.";
+    }
+
+    if (firebaseCode === "auth/popup-closed-by-user") {
+      return "Google popup was closed before login finished.";
+    }
+
+    if (firebaseCode) {
+      return `Google login failed: ${firebaseCode}`;
+    }
+
+    return backendMessage || "Login failed. Please try again.";
+  };
+
   const handleGoogleAuth = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const result = await signInWithPopup(auth, provider);
-
-      const payload = {
-        name: result.user.displayName,
-        email: result.user.email,
-        avatar: result.user.photoURL,
-      };
+      const idToken = await result.user.getIdToken();
 
       const { data } = await axios.post(
         `${import.meta.env.VITE_SERVER_URL}/api/auth/google`,
-        payload,
+        { idToken },
         { withCredentials: true },
       );
 
-      dispatch(setUserData(data.user)); // FIX: backend returns {user}
+      dispatch(setUserData(data.user));
+      onClose();
     } catch (error) {
       console.log("Auth Error:", error.response?.data || error.message);
+      setError(getAuthErrorMessage(error));
+    } finally {
+      setLoading(false);
     }
   };
+
   return (
     <div>
       {open && (
@@ -45,6 +70,7 @@ const LoginModel = ({ open, onClose }) => {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 40 }}
             transition={{ duration: 0.45, ease: "easeOut" }}
+            onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-md p-px rounded-3xl bg-linear-to-br from-purple-500/40 via-blue-500/30 to-transparent"
           >
             <div className="relative rounded-3xl bg-[#0b0b0b] border border-white/10 shadow-[0_30px_120px_rgba(0,0,0,0,0,0.8)] overflow-hidden">
@@ -79,19 +105,30 @@ const LoginModel = ({ open, onClose }) => {
                     Velora AI
                   </span>
                 </h2>
+                {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
                 <motion.button
                   onClick={handleGoogleAuth}
+                  disabled={loading}
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.96 }}
                   className="group relative w-full h-13 rounded-xl bg-white text-black font-semibold shadow-xl overflow-hidden"
                 >
                   <div className="relative flex item-center justify-center gap-3">
-                    <img
-                      className="h-5 w-5"
-                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/3840px-Google_%22G%22_logo.svg.png"
-                      alt=""
-                    />
-                    Continue with Google
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      <>
+                        <img
+                          className="h-5 w-5"
+                          src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/3840px-Google_%22G%22_logo.svg.png"
+                          alt=""
+                        />
+                        Continue with Google
+                      </>
+                    )}
                   </div>
                 </motion.button>
 
@@ -122,4 +159,4 @@ const LoginModel = ({ open, onClose }) => {
   );
 };
 
-export default LoginModel;
+export default LoginModal;

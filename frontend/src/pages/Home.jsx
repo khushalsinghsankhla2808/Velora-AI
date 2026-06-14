@@ -1,3 +1,4 @@
+// PATH: frontend/src/pages/Home.jsx
 import React from "react";
 import Navbar from "../components/Navbar";
 import {
@@ -9,8 +10,11 @@ import {
   Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 
 const Home = () => {
+  const navigate = useNavigate();
+
   return (
     <>
       <Navbar />
@@ -74,7 +78,10 @@ const Home = () => {
             transition={{ duration: 0.9 }}
             className="flex flex-col sm:flex-row justify-center gap-4 mt-10"
           >
-            <button className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-800 rounded-xl font-semibold transition">
+            <button
+              onClick={() => navigate("/generate")}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-800 rounded-xl font-semibold transition"
+            >
               Start Building <ArrowRight size={18} />{" "}
             </button>
             <button className="px-6 py-3 border border-white/10 hover:bg-white/30 rounded-xl transition">

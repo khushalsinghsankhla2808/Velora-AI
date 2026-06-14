@@ -1,3 +1,4 @@
+// PATH: frontend/src/firebase.js
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import {
@@ -12,7 +13,9 @@ import {
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: "velora-ai-32af8.firebaseapp.com",
+  authDomain:
+    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ||
+    "velora-ai-32af8.firebaseapp.com",
   projectId: "velora-ai-32af8",
   storageBucket: "velora-ai-32af8.firebasestorage.app",
   messagingSenderId: "801465411117",

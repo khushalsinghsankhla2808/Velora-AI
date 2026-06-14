@@ -1,3 +1,4 @@
+// PATH: frontend/src/main.jsx
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
@@ -7,6 +8,12 @@ import store from './redux/store'
 
 import { PersistGate } from 'redux-persist/integration/react'
 import { persistStore } from 'redux-persist'
+
+if (window.location.hostname === '127.0.0.1') {
+  window.location.replace(
+    window.location.href.replace('127.0.0.1', 'localhost'),
+  )
+}
 
 const persistor = persistStore(store)
 

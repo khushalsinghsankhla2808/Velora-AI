@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
-import { Coins } from "lucide-react";
+import { Coins, LayoutDashboard, Loader2, X } from "lucide-react";
 import LoginModel from "./LoginModal";
 import { useSelector, useDispatch } from "react-redux";
 
@@ -14,7 +14,33 @@ const Navbar = () => {
   const [openLogin, setOpenLogin] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
+  const [showCreditHistory, setShowCreditHistory] = useState(false);
+  const [creditHistory, setCreditHistory] = useState([]);
+  const [creditHistoryLoading, setCreditHistoryLoading] = useState(false);
+  const [creditHistoryError, setCreditHistoryError] = useState("");
   const { userData } = useSelector((state) => state.user);
+
+  const loadCreditHistory = async () => {
+    try {
+      setShowCreditHistory(true);
+      setCreditHistoryLoading(true);
+      setCreditHistoryError("");
+
+      const { data } = await axios.get(
+        `${import.meta.env.VITE_SERVER_URL}/api/credits/history`,
+        { withCredentials: true },
+      );
+
+      setCreditHistory(data);
+    } catch (error) {
+      setCreditHistoryError(
+        error.response?.data?.message || "Unable to load credit history",
+      );
+    } finally {
+      setCreditHistoryLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       const response = await axios.post(
@@ -58,21 +84,34 @@ const Navbar = () => {
           {/* right side */}
           <div>
             <div className="flex items-center gap-5">
+              {userData && (
+                <button
+                  onClick={() => navigate("/dashboard")}
+                  className="hidden md:flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition"
+                >
+                  <LayoutDashboard size={16} />
+                  Dashboard
+                </button>
+              )}
+
               <button
                 onClick={() => navigate("/pricing")}
-                className="hidden md:block text-sm text-zinc-400 hover:text-white transition"
+                className="hidden md:block text-sm font-semibold text-zinc-300 hover:text-white transition"
               >
-                Pricing
+                PRICING
               </button>
 
               {/* credits */}
               {userData && (
-                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border-white/10 text-sm cursor-pointer hover:bg-white/10 transition">
+                <button
+                  onClick={loadCreditHistory}
+                  className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm cursor-pointer hover:bg-white/10 transition"
+                >
                   <Coins size={14} className="text-yellow-400" />
                   <span className="text-white">{userData.credits}</span>
                   <span className="text-zinc-200">Credits</span>
                   <span className="font-semibold text-zinc-200">+</span>
-                </div>
+                </button>
               )}
               {/* profile or login */}
               {userData ? (
@@ -91,6 +130,16 @@ const Navbar = () => {
 
                   {showMenu && (
                     <div className="absolute right-0 mt-3 w-40 bg-zinc-900 border border-white/10 rounded-xl shadow-xl overflow-hidden">
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          navigate("/dashboard");
+                        }}
+                        className="w-full flex items-center gap-2 text-left px-4 py-3 text-sm text-zinc-200 hover:bg-white/10 transition"
+                      >
+                        <LayoutDashboard size={15} />
+                        Dashboard
+                      </button>
                       <button
                         onClick={() => setShowLogoutPopup(true)}
                         className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-white/10 transition"
@@ -142,6 +191,104 @@ const Navbar = () => {
               >
                 Yes, Logout
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreditHistory && (
+        <div
+          onClick={() => setShowCreditHistory(false)}
+          className="fixed inset-0 z-100 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-zinc-950 shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-400/10">
+                  <Coins size={20} className="text-yellow-400" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-white">
+                    Credit History
+                  </h2>
+                  <p className="text-xs text-zinc-400">
+                    Current balance: {userData?.credits ?? 0} credits
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowCreditHistory(false)}
+                className="rounded-lg p-2 text-zinc-400 hover:bg-white/10 hover:text-white transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto p-4">
+              {creditHistoryLoading && (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-400">
+                  <Loader2 size={18} className="animate-spin" />
+                  Loading history...
+                </div>
+              )}
+
+              {creditHistoryError && (
+                <p className="py-10 text-center text-sm text-red-400">
+                  {creditHistoryError}
+                </p>
+              )}
+
+              {!creditHistoryLoading &&
+                !creditHistoryError &&
+                creditHistory.length === 0 && (
+                  <p className="py-10 text-center text-sm text-zinc-400">
+                    No credit activity yet.
+                  </p>
+                )}
+
+              {!creditHistoryLoading &&
+                !creditHistoryError &&
+                creditHistory.length > 0 && (
+                  <div className="space-y-3">
+                    {creditHistory.map((item) => {
+                      const isCredit = item.type === "credit";
+
+                      return (
+                        <div
+                          key={item._id}
+                          className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-white">
+                              {item.description}
+                            </p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              {new Date(item.createdAt).toLocaleString()}
+                            </p>
+                            <p className="mt-1 text-xs text-zinc-400">
+                              Balance after: {item.balanceAfter}
+                            </p>
+                          </div>
+
+                          <div
+                            className={`shrink-0 rounded-full px-3 py-1 text-sm font-semibold ${
+                              isCredit
+                                ? "bg-emerald-500/10 text-emerald-400"
+                                : "bg-red-500/10 text-red-400"
+                            }`}
+                          >
+                            {isCredit ? "+" : "-"}
+                            {item.amount}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
             </div>
           </div>
         </div>
