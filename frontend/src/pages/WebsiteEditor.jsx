@@ -78,17 +78,21 @@ const WebsiteEditor = () => {
   };
 
   const handleDeploy = async () => {
-    const result = await axios.get(
-      `${import.meta.env.VITE_SERVER_URL}/api/website/deploy/${website._id}`,
-      { withCredentials: true },
-    );
-    const url = result.data.data.url;
-    setWebsite((current) => ({
-      ...current,
-      deployed: true,
-      deployUrl: url,
-    }));
-    window.open(url, "_blank");
+    try {
+      const result = await axios.get(
+        `${import.meta.env.VITE_SERVER_URL}/api/website/deploy/${website._id}`,
+        { withCredentials: true },
+      );
+      const url = result.data.data.url;
+      setWebsite((current) => ({
+        ...current,
+        deployed: true,
+        deployUrl: url,
+      }));
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error("Deploy failed:", error.response?.data || error.message);
+    }
   };
 
   useEffect(() => {
@@ -221,7 +225,7 @@ const WebsiteEditor = () => {
 
   return (
     <div className="h-screen w-screen flex bg-black text-white overflow-hidden">
-      <aside className="hidden lg:flex w-380px border-r border-white/10 bg-black/80 flex-col relative z-50">
+      <aside className="hidden lg:flex w-[380px] border-r border-white/10 bg-black/80 flex-col relative z-50">
         <Header />
         <MessagesArea />
         <InputArea />
@@ -263,7 +267,7 @@ const WebsiteEditor = () => {
         <iframe
           ref={iframeRef}
           className="flex-1 w-full bg-white relative z-0"
-          sandbox="allow-scripts allow-forms"
+          sandbox="allow-scripts allow-forms allow-same-origin"
           title={website.title}
         />
       </main>
@@ -274,7 +278,7 @@ const WebsiteEditor = () => {
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            className="fixed inset-y-0 right-0 w-full lg:w-[45%] z-9999 flex flex-col bg-[#1e1e1e]"
+            className="fixed inset-y-0 right-0 w-full lg:w-[45%] z-[9999] flex flex-col bg-[#1e1e1e]"
           >
             <div className="h-12 px-4 flex items-center justify-between border-b border-white/10">
               <p className="text-sm font-medium">index.html</p>
@@ -296,12 +300,12 @@ const WebsiteEditor = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black z-9999"
+            className="fixed inset-0 bg-black z-[9999]"
           >
             <iframe
               className="w-full h-full bg-white"
               srcDoc={code}
-              sandbox="allow-scripts allow-forms"
+              sandbox="allow-scripts allow-forms allow-same-origin"
               title="Full Preview"
             />
             <button
@@ -318,7 +322,7 @@ const WebsiteEditor = () => {
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            className="fixed inset-0 z-9999 flex flex-col bg-black"
+            className="fixed inset-0 z-[9999] flex flex-col bg-black"
           >
             <Header />
             <MessagesArea />

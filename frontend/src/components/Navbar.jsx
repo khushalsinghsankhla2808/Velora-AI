@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { Coins, LayoutDashboard, Loader2, X } from "lucide-react";
-import LoginModel from "./LoginModal";
+import LoginModal from "./LoginModal";
 import { useSelector, useDispatch } from "react-redux";
 
 import axios from "axios";
@@ -43,13 +43,11 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await axios.post(
+      await axios.post(
         `${import.meta.env.VITE_SERVER_URL}/api/auth/logout`,
         {},
         { withCredentials: true },
       );
-
-      console.log(response.data);
 
       // remove redux user
       dispatch(removeUserData());
@@ -163,7 +161,7 @@ const Navbar = () => {
       </motion.div>
 
       {openLogin && (
-        <LoginModel open={openLogin} onClose={() => setOpenLogin(false)} />
+        <LoginModal open={openLogin} onClose={() => setOpenLogin(false)} />
       )}
 
       {showLogoutPopup && (

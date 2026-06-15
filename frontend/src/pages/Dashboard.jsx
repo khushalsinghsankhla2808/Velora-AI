@@ -80,11 +80,7 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      loadWebsites();
-    }, 0);
-
-    return () => clearTimeout(timeout);
+    loadWebsites();
   }, []);
 
   return (

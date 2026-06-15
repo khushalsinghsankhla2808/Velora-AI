@@ -138,9 +138,9 @@ const Generate = () => {
       </header>
 
       {/* Light Beam Effect */}
-      <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-600px h-300px">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-400px h-300px bg-linear-to-b from-white/20 via-white/10 to-transparent blur-3xl opacity-40 rounded-full" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-200px h-200px bg-white/20 rounded-full blur-[150px]" />
+      <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px]">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-gradient-to-b from-white/20 via-white/10 to-transparent blur-3xl opacity-40 rounded-full" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[200px] h-[200px] bg-white/20 rounded-full blur-[150px]" />
       </div>
 
       {/* Body */}
@@ -287,7 +287,7 @@ const Generate = () => {
             {/* Bar */}
             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-3">
               <motion.div
-                className="h-full bg-linear-to-r from-white to-zinc-300 rounded-full"
+                className="h-full bg-gradient-to-r from-white to-zinc-300 rounded-full"
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               />

@@ -43,7 +43,7 @@ const LiveSite = () => {
     <iframe
       className="w-full h-screen"
       srcDoc={website.latestCode}
-      sandbox="allow-scripts allow-forms"
+      sandbox="allow-scripts allow-forms allow-same-origin"
       title={website.title}
     />
   );

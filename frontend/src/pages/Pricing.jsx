@@ -1,5 +1,5 @@
 // PATH: frontend/src/pages/Pricing.jsx
-import React from "react";
+import React, { useState } from "react";
 import { ArrowLeft, Check, Coins } from "lucide-react";
 import { motion } from "framer-motion";
 import { useDispatch } from "react-redux";
@@ -57,6 +57,7 @@ const plans = [
 const Pricing = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [paymentError, setPaymentError] = useState("");
 
   const loadRazorpay = async () => {
     if (window.Razorpay) {
@@ -109,7 +110,11 @@ const Pricing = () => {
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (error) {
-      console.log(error.response?.data || error.message);
+      console.error(error.response?.data || error.message);
+      setPaymentError(
+        error.response?.data?.error?.message ||
+        "Payment failed. Please try again."
+      );
     }
   };
 
@@ -195,6 +200,15 @@ const Pricing = () => {
           </motion.div>
         ))}
       </div>
+      {paymentError && (
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-8 text-center text-sm text-red-400"
+        >
+          {paymentError}
+        </motion.p>
+      )}
     </div>
   );
 };

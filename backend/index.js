@@ -62,10 +62,6 @@ app.use("/api/auth", authRoute);
 app.use("/api/website", websiteRoute);
 app.use("/api/payment", paymentRoute);
 app.use("/api/credits", creditRoute);
-app.use("/api/v1/auth", authRoute);
-app.use("/api/v1/website", websiteRoute);
-app.use("/api/v1/payment", paymentRoute);
-app.use("/api/v1/credits", creditRoute);
 
 // ======================================
 // Global Error Handler

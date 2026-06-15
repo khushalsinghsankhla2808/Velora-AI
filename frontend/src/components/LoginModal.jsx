@@ -73,7 +73,7 @@ const LoginModal = ({ open, onClose }) => {
             onClick={(e) => e.stopPropagation()}
             className="relative w-full max-w-md p-px rounded-3xl bg-linear-to-br from-purple-500/40 via-blue-500/30 to-transparent"
           >
-            <div className="relative rounded-3xl bg-[#0b0b0b] border border-white/10 shadow-[0_30px_120px_rgba(0,0,0,0,0,0.8)] overflow-hidden">
+            <div className="relative rounded-3xl bg-[#0b0b0b] border border-white/10 shadow-[0_30px_120px_rgba(0,0,0,0.8)] overflow-hidden">
               {/* glow background */}
               <motion.div
                 animate={{ opacity: [0.25, 0.4, 0.25] }}
@@ -113,7 +113,7 @@ const LoginModal = ({ open, onClose }) => {
                   whileTap={{ scale: 0.96 }}
                   className="group relative w-full h-13 rounded-xl bg-white text-black font-semibold shadow-xl overflow-hidden"
                 >
-                  <div className="relative flex item-center justify-center gap-3">
+                  <div className="relative flex items-center justify-center gap-3">
                     {loading ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
