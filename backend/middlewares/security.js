@@ -29,11 +29,17 @@ export const corsOptions = {
       return callback(null, true);
     }
 
-    console.error(`CORS Mismatch: Request origin "${origin}" is not in allowed origins:`, allowed);
+    console.error(
+      `CORS Mismatch: Request origin "${origin}" is not in allowed origins:`,
+      allowed,
+    );
     return callback(new Error("Origin not allowed by CORS"));
   },
   credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 };
+
 
 export const rateLimiter = (req, res, next) => {
   const key = req.ip || req.headers["x-forwarded-for"] || "unknown";
