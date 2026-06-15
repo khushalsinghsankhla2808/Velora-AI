@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "test": "node --test tests/payment.test.js"
+    "test": "node --test tests/payment.test.js tests/rateLimit.test.js tests/validation.test.js tests/aiConfig.test.js"
   },
   "author": "",
   "license": "ISC",
@@ -22,10 +22,12 @@
     "mongoose": "^9.6.3",
     "nodemon": "^3.1.14",
     "razorpay": "^2.9.6",
+    "winston": "^3.19.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "jest": "^30.4.2",
+    "mongodb-memory-server": "^11.2.0",
     "supertest": "^7.2.2"
   }
 }

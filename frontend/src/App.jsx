@@ -34,7 +34,9 @@ function App() {
             path="/generate"
             element={
               <ProtectedRoute>
-                <Generate />
+                <ErrorBoundary>
+                  <Generate />
+                </ErrorBoundary>
               </ProtectedRoute>
             }
           />

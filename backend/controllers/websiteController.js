@@ -1,6 +1,7 @@
 // PATH: backend/controllers/websiteController.js
 
 import { providerFactory } from "../services/ai/providerFactory.js";
+import { callAIWithFallback } from "../config/openRouter.js";
 import extractJson from "../utils/extractJson.js";
 import { Website } from "../models/websiteModel.js";
 import { User } from "../models/userModel.js";
@@ -72,7 +73,10 @@ const getProviderNameFromModel = (model) => {
     return "gemini";
 };
 
-const generateResponse = async (prompt, model) => {
+const generateResponse = async (prompt, model, userId) => {
+    if (model && model.includes("deepseek")) {
+        return await callAIWithFallback(prompt, { userId });
+    }
     const providerName = getProviderNameFromModel(model);
     const provider = providerFactory(providerName);
     const result = await provider.generate({ prompt, model });
@@ -82,12 +86,7 @@ const generateResponse = async (prompt, model) => {
 export const generateWebsite = async (req, res) => {
     let creditsReserved = false;
     try {
-        const parsedBody = generateSchema.safeParse(req.body);
-        if (!parsedBody.success) {
-            const errorDetail = parsedBody.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join(", ");
-            return sendError(res, "VALIDATION_ERROR", `Validation failed: ${errorDetail}`, 400);
-        }
-        const { prompt, model: rawModel } = parsedBody.data;
+        const { prompt, model: rawModel } = req.body;
 
         const model = validateModel(rawModel);
         if (!model) {
@@ -153,7 +152,8 @@ IF YOU RETURN ANYTHING OTHER THAN RAW JSON → RESPONSE IS INVALID.
         for (let attempt = 0; attempt < 2; attempt++) {
             const raw = await generateResponse(
                 attempt === 0 ? masterPrompt : masterPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. NO MARKDOWN. NO BACKTICKS.",
-                model
+                model,
+                req.user._id
             );
             parsed = extractJson(raw);
             if (parsed && parsed.code) break;
@@ -193,6 +193,9 @@ IF YOU RETURN ANYTHING OTHER THAN RAW JSON → RESPONSE IS INVALID.
             await User.findByIdAndUpdate(req.user._id, { $inc: { credits: GENERATE_COST } });
         }
         console.error("generateWebsite error:", error.message);
+        if (error.code === "AI_UNAVAILABLE") {
+            return sendError(res, "AI_UNAVAILABLE", error.message, 503);
+        }
         return sendError(res, "GENERATION_FAILED", "Server error during generation", 500);
     }
 };
@@ -200,11 +203,7 @@ IF YOU RETURN ANYTHING OTHER THAN RAW JSON → RESPONSE IS INVALID.
 // ─── Get Website By ID ───────────────────────────────────────────────────────
 export const getWebsiteById = async (req, res) => {
     try {
-        const parsedParams = idParamSchema.safeParse(req.params);
-        if (!parsedParams.success) {
-            return sendError(res, "INVALID_WEBSITE_ID", "Invalid website id", 400);
-        }
-        const { id } = parsedParams.data;
+        const id = req.params.id;
         const website = await Website.findOne({ _id: id, user: req.user._id }).lean();
         if (!website) return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
         return sendSuccess(res, { website });
@@ -218,18 +217,8 @@ export const getWebsiteById = async (req, res) => {
 export const changeWebsite = async (req, res) => {
     let creditsReserved = false;
     try {
-        const parsedParams = idParamSchema.safeParse(req.params);
-        if (!parsedParams.success) {
-            return sendError(res, "INVALID_WEBSITE_ID", "Invalid website id", 400);
-        }
-        const { id } = parsedParams.data;
-
-        const parsedBody = changeSchema.safeParse(req.body);
-        if (!parsedBody.success) {
-            const errorDetail = parsedBody.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join(", ");
-            return sendError(res, "VALIDATION_ERROR", `Validation failed: ${errorDetail}`, 400);
-        }
-        const { prompt, model: rawModel, codePreference: rawCodePref } = parsedBody.data;
+        const id = req.params.id;
+        const { prompt, model: rawModel, codePreference: rawCodePref } = req.body;
 
         const model = validateModel(rawModel);
         if (!model) return sendError(res, "INVALID_MODEL", "Selected AI model is not supported", 400);
@@ -278,7 +267,8 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
         for (let attempt = 0; attempt < 2; attempt++) {
             const raw = await generateResponse(
                 attempt === 0 ? updatePrompt : updatePrompt + "\n\nRETURN ONLY RAW JSON.",
-                model
+                model,
+                req.user._id
             );
             parsed = extractJson(raw);
             if (parsed && parsed.code) break;
@@ -315,6 +305,9 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
             await User.findByIdAndUpdate(req.user._id, { $inc: { credits: UPDATE_COST } });
         }
         console.error("changeWebsite error:", error.message);
+        if (error.code === "AI_UNAVAILABLE") {
+            return sendError(res, "AI_UNAVAILABLE", error.message, 503);
+        }
         return sendError(res, "UPDATE_FAILED", "Server error during update", 500);
     }
 };
@@ -341,11 +334,7 @@ export const getAllWebsite = async (req, res) => {
 // ─── Deploy Website ───────────────────────────────────────────────────────────
 export const deployWebsite = async (req, res) => {
     try {
-        const parsedParams = idParamSchema.safeParse(req.params);
-        if (!parsedParams.success) {
-            return sendError(res, "INVALID_WEBSITE_ID", "Invalid website id", 400);
-        }
-        const { id } = parsedParams.data;
+        const id = req.params.id;
         const website = await Website.findOne({ _id: id, user: req.user._id });
         if (!website) return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
 
@@ -366,12 +355,11 @@ export const deployWebsite = async (req, res) => {
 // ─── Get By Slug (Public) ────────────────────────────────────────────────────
 export const getBySlug = async (req, res) => {
     try {
-        const parsedParams = slugParamSchema.safeParse(req.params);
-        if (!parsedParams.success) {
+        const slugValidation = validateText({ value: req.params.slug, field: "Slug", min: 3, max: 100 });
+        if (!slugValidation.valid || !/^[a-z0-9-]+$/.test(slugValidation.value)) {
             return sendError(res, "INVALID_SLUG", "Invalid site slug", 400);
         }
-        const { slug } = parsedParams.data;
-        const website = await Website.findOne({ slug: slug, deployed: true }).lean();
+        const website = await Website.findOne({ slug: slugValidation.value, deployed: true }).lean();
         if (!website) return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
         return sendSuccess(res, { website });
     } catch (error) {

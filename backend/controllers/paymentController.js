@@ -103,8 +103,7 @@ export const verifyPayment = async (req, res) => {
     }
 
     if (payment.status === "paid") {
-      const user = await User.findById(payment.userId);
-      return sendSuccess(res, { message: "Already processed", user });
+      return sendError(res, "DUPLICATE_PAYMENT", "Payment already processed", 409);
     }
 
     const session = await mongoose.startSession();

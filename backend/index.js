@@ -11,17 +11,20 @@ import authRoute from "./routes/authRoutes.js";
 import websiteRoute from "./routes/websiteRoute.js";
 import paymentRoute from "./routes/paymentRoute.js";
 import creditRoute from "./routes/creditRoute.js";
-import { corsOptions, generalLimiter, securityHeaders } from "./middlewares/security.js";
+import { corsOptions, globalLimiter, securityHeaders } from "./middlewares/security.js";
 import { sendError } from "./utils/apiResponse.js";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+// Enable trust proxy for proxy-aware rate limiting (e.g. Render, Vercel deployments)
+app.set("trust proxy", 1);
+
 // ======================================
 // Middleware
 // ======================================
 app.use(securityHeaders);
-app.use(generalLimiter);
+app.use(globalLimiter);
 app.use(express.json());
 app.use(cookieParser());
 
