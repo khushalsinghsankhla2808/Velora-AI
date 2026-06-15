@@ -1,6 +1,6 @@
 // PATH: backend/controllers/authController.js
 import { CreditTransaction } from "../models/creditTransactionModel.js";
-import { User } from "../models/userMODEL.js";
+import { User } from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import {
   getFirebaseAuth,
@@ -25,6 +25,12 @@ const verifyFirebaseToken = async (idToken) => {
 
   if (process.env.NODE_ENV === "production") {
     throw new Error("Firebase Admin credentials missing");
+  }
+
+  if (process.env.ALLOW_INSECURE_DEV_AUTH !== "true") {
+    throw new Error(
+      "Firebase Admin credentials missing. Insecure development fallback is disabled.",
+    );
   }
 
   console.warn(

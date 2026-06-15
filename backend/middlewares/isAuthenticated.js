@@ -1,6 +1,6 @@
 // PATH: backend/middlewares/isAuthenticated.js
 import jwt from "jsonwebtoken";
-import { User } from "../models/userMODEL.js";
+import { User } from "../models/userModel.js";
 import { sendError } from "../utils/apiResponse.js";
 
 export const isAuthenticated = async (req, res, next) => {
