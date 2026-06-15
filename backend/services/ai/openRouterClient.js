@@ -81,5 +81,15 @@ export const callOpenRouter = async ({
     }
   }
 
+  if (model.includes("deepseek")) {
+    console.warn(`DeepSeek call failed on all attempts. Falling back to google/gemini-2.5-pro. Error: ${lastError.message}`);
+    return callOpenRouter({
+      prompt,
+      model: "google/gemini-2.5-pro",
+      providerName: "Gemini Pro (Fallback)",
+      systemPrompt,
+    });
+  }
+
   throw lastError;
 };

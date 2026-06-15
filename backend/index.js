@@ -11,7 +11,7 @@ import authRoute from "./routes/authRoutes.js";
 import websiteRoute from "./routes/websiteRoute.js";
 import paymentRoute from "./routes/paymentRoute.js";
 import creditRoute from "./routes/creditRoute.js";
-import { corsOptions, rateLimiter, securityHeaders } from "./middlewares/security.js";
+import { corsOptions, generalLimiter, securityHeaders } from "./middlewares/security.js";
 import { sendError } from "./utils/apiResponse.js";
 
 const app = express();
@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 8000;
 // Middleware
 // ======================================
 app.use(securityHeaders);
-app.use(rateLimiter);
+app.use(generalLimiter);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -88,16 +88,22 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   try {
     validateEnv();
-    await connectDB();
+    if (process.env.NODE_ENV !== "test") {
+      await connectDB();
 
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV}`);
-    });
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV}`);
+      });
+    }
   } catch (error) {
     console.error("Startup Error:", error);
-    process.exit(1);
+    if (process.env.NODE_ENV !== "test") {
+      process.exit(1);
+    }
   }
 };
 
 startServer();
+
+export default app;

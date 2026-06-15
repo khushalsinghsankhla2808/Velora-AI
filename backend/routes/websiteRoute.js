@@ -1,6 +1,7 @@
 // PATH: backend/routes/websiteRoute.js
 import express from "express";
 import { isAuthenticated } from "../middlewares/isAuthenticated.js";
+import { generateLimiter } from "../middlewares/security.js";
 import {
   generateWebsite,
   getAllWebsite,
@@ -12,7 +13,7 @@ import {
 
 const router = express.Router();
 
-router.post("/generate", isAuthenticated, generateWebsite);
+router.post("/generate", isAuthenticated, generateLimiter, generateWebsite);
 router.get("/getall", isAuthenticated, getAllWebsite);
 router.get("/getbyid/:id", isAuthenticated, getWebsiteById);
 router.post("/update/:id", isAuthenticated, changeWebsite);

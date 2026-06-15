@@ -1,21 +1,5 @@
-// PATH: backend/middlewares/security.js
-
 import { getAllowedOrigins } from "../config/env.js";
-
-const WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS = 120;
-const MAX_TRACKED_IPS = 5000; // Guard against memory exhaustion
-const buckets = new Map();
-
-// Periodic cleanup of expired rate limit buckets to prevent memory leak
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of buckets.entries()) {
-    if (bucket.resetAt <= now) {
-      buckets.delete(key);
-    }
-  }
-}, 60000).unref(); // unref() prevents the timer from holding the event loop open
+import rateLimit from "express-rate-limit";
 
 export const securityHeaders = (req, res, next) => {
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
@@ -24,26 +8,17 @@ export const securityHeaders = (req, res, next) => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=()",
+    "camera=(), microphone=(), geolocation=(), payment=(), accelerometer=(), gyroscope=(), magnetometer=()"
   );
   next();
 };
 
 export const corsOptions = {
   origin(origin, callback) {
-    if (!origin) {
-      return callback(null, true);
-    }
-
+    if (!origin) return callback(null, true);
     const allowed = getAllowedOrigins();
-    if (allowed.includes(origin)) {
-      return callback(null, true);
-    }
-
-    console.error(
-      `CORS Mismatch: Request origin "${origin}" is not in allowed origins:`,
-      allowed,
-    );
+    if (allowed.includes(origin)) return callback(null, true);
+    console.error(`CORS Mismatch: "${origin}" not in`, allowed);
     return callback(new Error("Origin not allowed by CORS"));
   },
   credentials: true,
@@ -51,32 +26,30 @@ export const corsOptions = {
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 };
 
+export const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: "TOO_MANY_REQUESTS",
+      message: "Too many requests. Please try again after 15 minutes.",
+    },
+  },
+});
 
-export const rateLimiter = (req, res, next) => {
-  const key = req.ip || req.headers["x-forwarded-for"] || "unknown";
-  const now = Date.now();
-  const bucket = buckets.get(key);
-
-  if (!bucket || bucket.resetAt <= now) {
-    if (buckets.size >= MAX_TRACKED_IPS) {
-      // Evict the oldest entry (FIFO) to limit map capacity under massive IP spoofing
-      const firstKey = buckets.keys().next().value;
-      if (firstKey) buckets.delete(firstKey);
-    }
-    buckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
-    return next();
-  }
-
-  if (bucket.count >= MAX_REQUESTS) {
-    return res.status(429).json({
-      success: false,
-      error: {
-        code: "RATE_LIMITED",
-        message: "Too many requests. Please try again shortly.",
-      },
-    });
-  }
-
-  bucket.count += 1;
-  return next();
-};
+export const generateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // Limit each IP to 10 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: {
+      code: "GENERATION_RATE_LIMITED",
+      message: "Too many website generation requests. Please try again after a minute.",
+    },
+  },
+});

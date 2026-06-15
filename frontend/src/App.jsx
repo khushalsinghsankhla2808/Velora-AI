@@ -6,6 +6,8 @@ import Home from "./pages/Home";
 import Pricing from "./pages/Pricing";
 import LiveSite from "./pages/LiveSite";
 
+import ErrorBoundary from "./components/ErrorBoundary";
+
 const Generate = lazy(() => import("./pages/Generate"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const WebsiteEditor = lazy(() => import("./pages/WebsiteEditor"));
@@ -48,7 +50,9 @@ function App() {
             path="/editor/:id"
             element={
               <ProtectedRoute>
-                <WebsiteEditor />
+                <ErrorBoundary>
+                  <WebsiteEditor />
+                </ErrorBoundary>
               </ProtectedRoute>
             }
           />
