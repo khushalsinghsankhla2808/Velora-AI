@@ -1,5 +1,5 @@
 // PATH: frontend/src/pages/Home.jsx
-import React from "react";
+import React, { useState } from "react";
 import Navbar from "../components/Navbar";
 import {
   ArrowRight,
@@ -7,6 +7,7 @@ import {
   Layout,
   LayoutTemplate,
   Sparkles,
+  X,
   Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -14,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 
 const Home = () => {
   const navigate = useNavigate();
+  const [showDemo, setShowDemo] = useState(false);
 
   return (
     <>
@@ -84,7 +86,10 @@ const Home = () => {
             >
               Start Building <ArrowRight size={18} />{" "}
             </button>
-            <button className="px-6 py-3 border border-white/10 hover:bg-white/30 rounded-xl transition">
+            <button
+              onClick={() => setShowDemo(true)}
+              className="px-6 py-3 border border-white/10 hover:bg-white/30 rounded-xl transition"
+            >
               Watch Demo
             </button>
           </motion.div>
@@ -118,6 +123,34 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {showDemo && (
+        <div
+          onClick={() => setShowDemo(false)}
+          className="fixed inset-0 z-100 flex items-center justify-center bg-black/80 backdrop-blur-xl px-4 animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-4xl rounded-3xl border border-white/10 bg-[#0b0b0b] overflow-hidden shadow-2xl p-2"
+          >
+            <button
+              onClick={() => setShowDemo(false)}
+              className="absolute top-4 right-4 z-20 rounded-lg p-2 text-zinc-400 hover:bg-white/10 hover:text-white transition"
+            >
+              <X size={20} />
+            </button>
+            <div className="relative pt-[56.25%] w-full rounded-2xl overflow-hidden bg-black">
+              <iframe
+                className="absolute inset-0 w-full h-full border-0"
+                src="https://www.youtube.com/embed/14d0s7M3vV8?autoplay=1"
+                title="Velora AI Demo Video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
