@@ -9,12 +9,29 @@ import axios from "axios";
 import { setUserData } from "../redux/userSlice";
 
 const CODE_OPTIONS = [
-  { value: "keep", label: "Keep current style" },
-  { value: "html-css-js", label: "HTML, CSS & JavaScript" },
-  { value: "javascript", label: "JavaScript focused" },
-  { value: "typescript", label: "TypeScript style" },
-  { value: "react", label: "React-style components" },
-  { value: "tailwind", label: "Tailwind-style CSS" },
+  { value: "keep",          label: "Keep current style" },
+  { value: "html-css-js",  label: "HTML, CSS & JavaScript" },
+  { value: "tailwind",     label: "Tailwind CSS" },
+  { value: "bootstrap",    label: "Bootstrap 5" },
+  { value: "glassmorphism",label: "Glassmorphism UI" },
+  { value: "neumorphism",  label: "Neumorphism / Soft UI" },
+  { value: "material",     label: "Material Design" },
+  { value: "animations",   label: "Animation Focused" },
+  { value: "vue",          label: "Vue Style" },
+  { value: "react",        label: "React Style" },
+  { value: "scss",         label: "SCSS Architecture" },
+  { value: "javascript",   label: "JavaScript Heavy" },
+  { value: "typescript",   label: "TypeScript Style" },
+];
+
+const EDITOR_MODELS = [
+  { label: "Gemini 2.0 Flash",  value: "google/gemini-2.0-flash-exp:free" },
+  { label: "DeepSeek R1",       value: "deepseek/deepseek-r1:free" },
+  { label: "Kimi (Moonshot)",   value: "moonshotai/kimi-vl-a3b-thinking:free" },
+  { label: "MiniMax",           value: "minimax/minimax-01" },
+  { label: "Qwen 3 235B",       value: "qwen/qwen3-235b-a22b:free" },
+  { label: "Llama 4 Maverick",  value: "meta-llama/llama-4-maverick:free" },
+  { label: "Mistral Small",     value: "mistralai/mistral-small-3.1-24b-instruct:free" },
 ];
 
 const thinkingSteps = [
@@ -41,6 +58,8 @@ const WebsiteEditor = () => {
   const [showCode, setShowCode] = useState(false);
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [model, setModel] = useState(EDITOR_MODELS[0].value);
+  const [selectedModel, setSelectedModel] = useState("google/gemini-2.0-flash-exp:free");
 
   const handleUpdate = async () => {
     if (!prompt.trim() || updateLoading) {
@@ -55,7 +74,7 @@ const WebsiteEditor = () => {
     try {
       const result = await axios.post(
         `${import.meta.env.VITE_SERVER_URL}/api/website/update/${id}`,
-        { prompt: currentPrompt, codePreference },
+        { prompt: currentPrompt, codePreference, model: selectedModel },
         { withCredentials: true },
       );
 
@@ -184,6 +203,21 @@ const WebsiteEditor = () => {
 
   const InputArea = () => (
     <div className="p-3 border-t border-white/10">
+      <label className="mb-2 block">
+        <span className="mb-1 block text-xs text-zinc-400">AI Model</span>
+        <select
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
+          disabled={updateLoading}
+          className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-xs text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {EDITOR_MODELS.map((m) => (
+            <option key={m.value} value={m.value} className="bg-zinc-950 text-white">
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <label className="mb-2 block">
         <span className="mb-1 block text-xs text-zinc-400">Code Style</span>
         <select
