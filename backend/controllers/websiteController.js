@@ -31,6 +31,21 @@ const validateModel = (model) => {
     return ALLOWED_MODELS.has(model) ? model : null;
 };
 
+const getProviderNameFromModel = (model) => {
+    if (model.includes("gemini")) return "gemini";
+    if (model.includes("deepseek")) return "deepseek";
+    if (model.includes("llama")) return "llama";
+    if (model.includes("mistral")) return "gemini"; // fallback for mistral since it is allowed but has no provider in factory
+    return "gemini";
+};
+
+const generateResponse = async (prompt, model) => {
+    const providerName = getProviderNameFromModel(model);
+    const provider = providerFactory(providerName);
+    const result = await provider.generate({ prompt, model });
+    return result.content;
+};
+
 // ─── Generate Website ────────────────────────────────────────────────────────
 export const generateWebsite = async (req, res) => {
     let creditsReserved = false;

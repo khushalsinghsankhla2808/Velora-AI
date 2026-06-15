@@ -24,10 +24,12 @@ export const corsOptions = {
       return callback(null, true);
     }
 
-    if (getAllowedOrigins().includes(origin)) {
+    const allowed = getAllowedOrigins();
+    if (allowed.includes(origin)) {
       return callback(null, true);
     }
 
+    console.error(`CORS Mismatch: Request origin "${origin}" is not in allowed origins:`, allowed);
     return callback(new Error("Origin not allowed by CORS"));
   },
   credentials: true,
