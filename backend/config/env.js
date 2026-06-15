@@ -29,7 +29,7 @@ export const getAllowedOrigins = () => {
     "http://127.0.0.1:5173",
   ]
     .filter(Boolean)
-    .map((url) => url.replace(/\/$/, ""));
+    .map((url) => url.trim().replace(/\/$/, ""));
 
   return [...new Set(origins)];
 };
