@@ -5,7 +5,7 @@ import "dotenv/config";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
-import { validateEnv } from "./config/env.js";
+import { validateEnv, getAllowedOrigins } from "./config/env.js";
 import connectDB from "./database/db.js";
 import authRoute from "./routes/authRoutes.js";
 import websiteRoute from "./routes/websiteRoute.js";
@@ -73,11 +73,16 @@ app.use("/api/v1/credits", creditRoute);
 app.use((err, req, res, next) => {
   console.error("Server Error:", err);
 
+  const isCorsError = err.message === "Origin not allowed by CORS";
+  const errorMessage = isCorsError
+    ? `Origin not allowed by CORS: "${req.headers.origin}". Allowed: ${JSON.stringify(getAllowedOrigins())}`
+    : (err.message || "Internal Server Error");
+
   return sendError(
     res,
-    err.message === "Origin not allowed by CORS" ? "CORS_NOT_ALLOWED" : "INTERNAL_ERROR",
-    err.message || "Internal Server Error",
-    err.message === "Origin not allowed by CORS" ? 403 : 500,
+    isCorsError ? "CORS_NOT_ALLOWED" : "INTERNAL_ERROR",
+    errorMessage,
+    isCorsError ? 403 : 500,
   );
 });
 
