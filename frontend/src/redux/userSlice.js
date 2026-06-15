@@ -9,11 +9,18 @@ const userSlice = createSlice({
 
   reducers: {
     setUserData: (state, action) => {
-      state.userData = action.payload
+      if (action.payload) {
+        state.userData = {
+          ...action.payload,
+          token: action.payload.token || state.userData?.token
+        };
+      } else {
+        state.userData = null;
+      }
     },
 
     removeUserData: (state) => {
-      state.userData = null
+      state.userData = null;
     }
   },
 })

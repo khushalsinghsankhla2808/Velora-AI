@@ -19,7 +19,19 @@ const AI_MODELS = [
     value: "deepseek/deepseek-r1:free",
   },
   {
-    label: "Llama 4 Maverick — Creative",
+    label: "Kimi (Moonshot) — Thinking Mode",
+    value: "moonshotai/kimi-vl-a3b-thinking:free",
+  },
+  {
+    label: "MiniMax — Balanced & Dynamic",
+    value: "minimax/minimax-01",
+  },
+  {
+    label: "Qwen 3 235B — High Capacity",
+    value: "qwen/qwen3-235b-a22b:free",
+  },
+  {
+    label: "Llama 4 Maverick — Creative & Expressive",
     value: "meta-llama/llama-4-maverick:free",
   },
   {
@@ -30,8 +42,18 @@ const AI_MODELS = [
 
 // ─── Tech Stack Options ───────────────────────────────────────────────────────
 const TECH_OPTIONS = [
-  { label: "HTML, CSS & JavaScript", value: "html" },
-  { label: "Tailwind CSS", value: "tailwind" },
+  { value: "html-css-js",   label: "HTML, CSS & JavaScript" },
+  { value: "tailwind",      label: "Tailwind CSS" },
+  { value: "bootstrap",     label: "Bootstrap 5" },
+  { value: "glassmorphism", label: "Glassmorphism UI" },
+  { value: "neumorphism",   label: "Neumorphism / Soft UI" },
+  { value: "material",      label: "Material Design" },
+  { value: "animations",    label: "Animation Focused" },
+  { value: "vue",           label: "Vue Style" },
+  { value: "react",         label: "React Style" },
+  { value: "scss",          label: "SCSS Architecture" },
+  { value: "javascript",    label: "JavaScript Heavy" },
+  { value: "typescript",    label: "TypeScript Style" },
 ];
 
 // ─── Progress Phases ──────────────────────────────────────────────────────────
@@ -96,8 +118,9 @@ const Generate = () => {
       const res = await axios.post(
         `${import.meta.env.VITE_SERVER_URL}/api/website/generate`,
         {
-          prompt: `${prompt}. Use ${selectedTech === "tailwind" ? "Tailwind CSS via CDN" : "plain HTML, CSS and JavaScript"}.`,
+          prompt,
           model: selectedModel,
+          codePreference: selectedTech,
         },
         { withCredentials: true },
       );

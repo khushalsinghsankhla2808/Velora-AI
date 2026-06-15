@@ -115,7 +115,12 @@ export const googleAuth = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return sendSuccess(res, { user });
+    return sendSuccess(res, {
+      user: {
+        ...user.toObject(),
+        token,
+      },
+    });
   } catch (error) {
     console.error("GoogleAuth Error:", error.message);
 
