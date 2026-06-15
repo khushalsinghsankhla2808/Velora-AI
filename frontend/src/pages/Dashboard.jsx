@@ -1,6 +1,15 @@
 // PATH: frontend/src/pages/Dashboard.jsx
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Check, Rocket, Share2 } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Rocket,
+  Share2,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -13,45 +22,69 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copiedId, setCopiedId] = useState(null);
+  const [deployingId, setDeployingId] = useState(null);
+  const [actionError, setActionError] = useState("");
 
   const handleDeploy = async (id) => {
-    const result = await axios.get(
-      `${import.meta.env.VITE_SERVER_URL}/api/website/deploy/${id}`,
-      { withCredentials: true },
-    );
-    window.open(result.data.url, "_blank");
-    setWebsites((sites) =>
-      sites.map((site) =>
-        site._id === id
-          ? { ...site, deployed: true, deployUrl: result.data.url }
-          : site,
-      ),
-    );
+    try {
+      setActionError("");
+      setDeployingId(id);
+      const result = await axios.get(
+        `${import.meta.env.VITE_SERVER_URL}/api/website/deploy/${id}`,
+        { withCredentials: true },
+      );
+      const url = result.data.data.url;
+      window.open(url, "_blank", "noopener,noreferrer");
+      setWebsites((sites) =>
+        sites.map((site) =>
+          site._id === id
+            ? { ...site, deployed: true, deployUrl: url }
+            : site,
+        ),
+      );
+    } catch (error) {
+      setActionError(
+        error.response?.data?.error?.message || "Unable to deploy website",
+      );
+    } finally {
+      setDeployingId(null);
+    }
   };
 
   const handleCopy = async (site) => {
-    await navigator.clipboard.writeText(site.deployUrl);
-    setCopiedId(site._id);
-    setTimeout(() => setCopiedId(null), 2000);
+    try {
+      setActionError("");
+      await navigator.clipboard.writeText(site.deployUrl);
+      setCopiedId(site._id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (error) {
+      setActionError("Unable to copy link. Please open the site and copy the URL.");
+    }
+  };
+
+  const loadWebsites = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const result = await axios.get(
+        `${import.meta.env.VITE_SERVER_URL}/api/website/getall`,
+        { withCredentials: true },
+      );
+      setWebsites(result.data.data.websites);
+    } catch (error) {
+      setError(error.response?.data?.error?.message || "Unable to load websites");
+      setWebsites([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    const loadWebsites = async () => {
-      try {
-        setLoading(true);
-        const result = await axios.get(
-          `${import.meta.env.VITE_SERVER_URL}/api/website/getall`,
-          { withCredentials: true },
-        );
-        setWebsites(result.data);
-      } catch (error) {
-        setError(error.response?.data?.message || "Unable to load websites");
-      } finally {
-        setLoading(false);
-      }
-    };
+    const timeout = setTimeout(() => {
+      loadWebsites();
+    }, 0);
 
-    loadWebsites();
+    return () => clearTimeout(timeout);
   }, []);
 
   return (
@@ -69,9 +102,10 @@ const Dashboard = () => {
           </div>
           <button
             onClick={() => navigate("/generate")}
-            className="px-5 py-2 rounded-xl bg-white text-black font-semibold hover:scale-105 transition"
+            className="inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-xl bg-white text-black font-semibold hover:scale-105 transition"
           >
-            + New Website
+            <Plus size={16} />
+            <span className="hidden sm:inline">New Website</span>
           </button>
         </div>
       </header>
@@ -86,17 +120,68 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold">{userData?.name}</h1>
         </motion.section>
 
-        {loading && (
-          <p className="text-center text-zinc-400">Loading your websites...</p>
-        )}
-        {error && <p className="text-center text-red-400">{error}</p>}
-        {websites?.length === 0 && (
-          <p className="text-center text-zinc-400">You have no websites yet.</p>
+        {actionError && (
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <AlertCircle size={18} className="shrink-0" />
+            <p>{actionError}</p>
+          </div>
         )}
 
+        {loading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-72 rounded-2xl border border-white/10 bg-white/5 overflow-hidden"
+              >
+                <div className="h-40 bg-white/10 animate-pulse" />
+                <div className="p-5 space-y-4">
+                  <div className="h-4 w-3/4 rounded bg-white/10 animate-pulse" />
+                  <div className="h-3 w-1/2 rounded bg-white/10 animate-pulse" />
+                  <div className="h-10 rounded-xl bg-white/10 animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!loading && error && (
+          <div className="mx-auto flex max-w-md flex-col items-center rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center">
+            <AlertCircle size={28} className="mb-4 text-red-400" />
+            <p className="font-semibold text-white">Unable to load websites</p>
+            <p className="mt-2 text-sm text-zinc-400">{error}</p>
+            <button
+              onClick={loadWebsites}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-zinc-200"
+            >
+              <RefreshCw size={15} />
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && websites?.length === 0 && (
+          <div className="mx-auto flex max-w-md flex-col items-center rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center">
+            <Rocket size={30} className="mb-4 text-indigo-300" />
+            <p className="font-semibold text-white">No websites yet</p>
+            <p className="mt-2 text-sm text-zinc-400">
+              Start with a prompt and your first generated site will appear here.
+            </p>
+            <button
+              onClick={() => navigate("/generate")}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-zinc-200"
+            >
+              <Plus size={15} />
+              Create Website
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && websites?.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
           {websites?.map((w, i) => {
             const copied = copiedId === w._id;
+            const deploying = deployingId === w._id;
 
             return (
               <motion.div
@@ -128,13 +213,22 @@ const Dashboard = () => {
 
                   {!w.deployed ? (
                     <button
+                      disabled={deploying}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeploy(w._id);
                       }}
-                      className="mt-auto flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-linear-to-r from-indigo-500 to-purple-500 hover:scale-105 transition"
+                      className="mt-auto flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-linear-to-r from-indigo-500 to-purple-500 hover:scale-105 transition disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
                     >
-                      <Rocket size={18} /> Deploy
+                      {deploying ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" /> Deploying
+                        </>
+                      ) : (
+                        <>
+                          <Rocket size={18} /> Deploy
+                        </>
+                      )}
                     </button>
                   ) : (
                     <motion.button
@@ -165,6 +259,7 @@ const Dashboard = () => {
             );
           })}
         </div>
+        )}
       </main>
     </div>
   );

@@ -4,21 +4,68 @@ import { generateResponse } from "../config/openRouter.js";
 import extractJson from "../utils/extractJson.js";
 import { Website } from "../models/websiteModel.js";
 import { User } from "../models/userMODEL.js";
+import { CreditTransaction } from "../models/creditTransactionModel.js";
+import { sendError, sendSuccess } from "../utils/apiResponse.js";
+import { isValidObjectId, parsePagination, validateText } from "../utils/validation.js";
+
+const GENERATE_COST = 10;
+const UPDATE_COST = 5;
+const ALLOWED_MODELS = new Set([
+    "google/gemini-2.0-flash-exp:free",
+    "deepseek/deepseek-r1:free",
+    "meta-llama/llama-4-maverick:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
+]);
+const ALLOWED_CODE_PREFERENCES = new Set([
+    "keep",
+    "html-css-js",
+    "javascript",
+    "typescript",
+    "react",
+    "tailwind",
+]);
+
+const validateModel = (model) => {
+    if (!model) return "google/gemini-2.0-flash-exp:free";
+    return ALLOWED_MODELS.has(model) ? model : null;
+};
 
 // ─── Generate Website ────────────────────────────────────────────────────────
 export const generateWebsite = async (req, res) => {
+    let creditsReserved = false;
     try {
-        const { prompt, model = "google/gemini-2.0-flash-exp:free" } = req.body;  // ← Added model
+        const promptValidation = validateText({
+            value: req.body.prompt,
+            field: "Prompt",
+            min: 5,
+            max: 3000,
+        });
 
-        if (!prompt) {
-            return res.status(400).json({ message: "Prompt is required" });
+        if (!promptValidation.valid) {
+            return sendError(res, "INVALID_PROMPT", promptValidation.message, 400);
         }
 
-        const user = await User.findById(req.user._id);
-
-        if (user.credits < 10) {
-            return res.status(400).json({ message: "Not enough credits. Minimum 10 credits required." });
+        const model = validateModel(req.body.model);
+        if (!model) {
+            return sendError(res, "INVALID_MODEL", "Selected AI model is not supported", 400);
         }
+        const prompt = promptValidation.value;
+
+        const user = await User.findOneAndUpdate(
+            { _id: req.user._id, credits: { $gte: GENERATE_COST } },
+            { $inc: { credits: -GENERATE_COST } },
+            { new: true },
+        );
+
+        if (!user) {
+            return sendError(
+                res,
+                "INSUFFICIENT_CREDITS",
+                "Not enough credits. Minimum 10 credits required.",
+                400,
+            );
+        }
+        creditsReserved = true;
 
         const masterPrompt = `
 YOU ARE A PRINCIPAL FRONTEND ARCHITECT AND SENIOR UI/UX ENGINEER.
@@ -59,7 +106,14 @@ IF YOU RETURN ANYTHING OTHER THAN RAW JSON → RESPONSE IS INVALID.
         }
 
         if (!parsed || !parsed.code) {
-            return res.status(400).json({ message: "AI returned an invalid response. Please try again." });
+            await User.findByIdAndUpdate(req.user._id, { $inc: { credits: GENERATE_COST } });
+            creditsReserved = false;
+            return sendError(
+                res,
+                "INVALID_AI_RESPONSE",
+                "AI returned an invalid response. Please try again.",
+                400,
+            );
         }
 
         const website = await Website.create({
@@ -72,48 +126,83 @@ IF YOU RETURN ANYTHING OTHER THAN RAW JSON → RESPONSE IS INVALID.
             ],
         });
 
-        user.credits -= 10;
-        await user.save();
+        await CreditTransaction.create({
+            user: user._id,
+            type: "debit",
+            amount: GENERATE_COST,
+            balanceAfter: user.credits,
+            reason: "website_generation",
+            description: "Website generation",
+            referenceId: website._id.toString(),
+        });
+        creditsReserved = false;
 
-        return res.status(201).json({
+        return sendSuccess(res, {
             websiteId: website._id,
             remainingCredits: user.credits,
-        });
+        }, 201);
 
     } catch (error) {
+        if (creditsReserved) {
+            await User.findByIdAndUpdate(req.user._id, { $inc: { credits: GENERATE_COST } });
+        }
         console.error("generateWebsite error:", error.message);
-        return res.status(500).json({ message: "Server error during generation" });
+        return sendError(res, "GENERATION_FAILED", "Server error during generation", 500);
     }
 };
 
 // ─── Get Website By ID ───────────────────────────────────────────────────────
 export const getWebsiteById = async (req, res) => {
     try {
+        if (!isValidObjectId(req.params.id)) {
+            return sendError(res, "INVALID_WEBSITE_ID", "Invalid website id", 400);
+        }
+
         const website = await Website.findOne({
             _id: req.params.id,
             user: req.user._id,
-        });
+        }).lean();
 
         if (!website) {
-            return res.status(400).json({ message: "Website not found" });
+            return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
         }
 
-        return res.status(200).json(website);
+        return sendSuccess(res, { website });
 
     } catch (error) {
         console.error("getWebsiteById error:", error.message);
-        return res.status(500).json({ message: "Server error" });
+        return sendError(res, "WEBSITE_FETCH_FAILED", "Server error", 500);
     }
 };
 
 // ─── Update / Change Website ─────────────────────────────────────────────────
 export const changeWebsite = async (req, res) => {
+    let creditsReserved = false;
     try {
-        const { prompt, model = "google/gemini-2.0-flash-exp:free" } = req.body;  // ← Added model
-
-        if (!prompt) {
-            return res.status(400).json({ message: "Prompt is required" });
+        if (!isValidObjectId(req.params.id)) {
+            return sendError(res, "INVALID_WEBSITE_ID", "Invalid website id", 400);
         }
+
+        const promptValidation = validateText({
+            value: req.body.prompt,
+            field: "Prompt",
+            min: 3,
+            max: 3000,
+        });
+
+        if (!promptValidation.valid) {
+            return sendError(res, "INVALID_PROMPT", promptValidation.message, 400);
+        }
+
+        const model = validateModel(req.body.model);
+        if (!model) {
+            return sendError(res, "INVALID_MODEL", "Selected AI model is not supported", 400);
+        }
+
+        const codePreference = ALLOWED_CODE_PREFERENCES.has(req.body.codePreference)
+            ? req.body.codePreference
+            : "keep";
+        const prompt = promptValidation.value;
 
         const website = await Website.findOne({
             _id: req.params.id,
@@ -121,14 +210,24 @@ export const changeWebsite = async (req, res) => {
         });
 
         if (!website) {
-            return res.status(400).json({ message: "Website not found" });
+            return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
         }
 
-        const user = await User.findById(req.user._id);
+        const user = await User.findOneAndUpdate(
+            { _id: req.user._id, credits: { $gte: UPDATE_COST } },
+            { $inc: { credits: -UPDATE_COST } },
+            { new: true },
+        );
 
-        if (user.credits < 5) {
-            return res.status(400).json({ message: "Not enough credits. Minimum 5 credits required." });
+        if (!user) {
+            return sendError(
+                res,
+                "INSUFFICIENT_CREDITS",
+                "Not enough credits. Minimum 5 credits required.",
+                400,
+            );
         }
+        creditsReserved = true;
 
         const updatePrompt = `
 UPDATE THIS EXISTING WEBSITE BASED ON THE USER REQUEST BELOW.
@@ -138,6 +237,9 @@ ${website.latestCode}
 
 USER REQUEST:
 ${prompt}
+
+CODE STYLE PREFERENCE:
+${codePreference}
 
 STRICT RULES:
 - Return the COMPLETE updated HTML file (not just the changed parts)
@@ -161,7 +263,14 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
         }
 
         if (!parsed || !parsed.code) {
-            return res.status(400).json({ message: "AI returned an invalid response. Please try again." });
+            await User.findByIdAndUpdate(req.user._id, { $inc: { credits: UPDATE_COST } });
+            creditsReserved = false;
+            return sendError(
+                res,
+                "INVALID_AI_RESPONSE",
+                "AI returned an invalid response. Please try again.",
+                400,
+            );
         }
 
         website.conversation.push(
@@ -171,42 +280,79 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
         website.latestCode = parsed.code;
         await website.save();
 
-        user.credits -= 5;
-        await user.save();
+        await CreditTransaction.create({
+            user: user._id,
+            type: "debit",
+            amount: UPDATE_COST,
+            balanceAfter: user.credits,
+            reason: "website_update",
+            description: "Website update",
+            referenceId: website._id.toString(),
+        });
+        creditsReserved = false;
 
-        return res.status(200).json({
+        return sendSuccess(res, {
             message: parsed.message,
             code: parsed.code,
             remainingCredits: user.credits,
         });
 
     } catch (error) {
+        if (creditsReserved) {
+            await User.findByIdAndUpdate(req.user._id, { $inc: { credits: UPDATE_COST } });
+        }
         console.error("changeWebsite error:", error.message);
-        return res.status(500).json({ message: "Server error during update" });
+        return sendError(res, "UPDATE_FAILED", "Server error during update", 500);
     }
 };
 
 // ─── Get All Websites ────────────────────────────────────────────────────────
 export const getAllWebsite = async (req, res) => {
     try {
-        const websites = await Website.find({ user: req.user._id }).sort({ updatedAt: -1 });
-        return res.status(200).json(websites);
+        const { page, limit, skip } = parsePagination(req.query, {
+            limit: 12,
+            maxLimit: 30,
+        });
+        const filter = { user: req.user._id };
+        const [websites, total] = await Promise.all([
+            Website.find(filter)
+                .sort({ updatedAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            Website.countDocuments(filter),
+        ]);
+
+        return sendSuccess(res, {
+            websites,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+                hasNextPage: page * limit < total,
+            },
+        });
     } catch (error) {
         console.error("getAllWebsite error:", error.message);
-        return res.status(500).json({ message: "Server error" });
+        return sendError(res, "WEBSITES_FETCH_FAILED", "Server error", 500);
     }
 };
 
 // ─── Deploy Website ───────────────────────────────────────────────────────────
 export const deployWebsite = async (req, res) => {
     try {
+        if (!isValidObjectId(req.params.id)) {
+            return sendError(res, "INVALID_WEBSITE_ID", "Invalid website id", 400);
+        }
+
         const website = await Website.findOne({
             _id: req.params.id,
             user: req.user._id,
         });
 
         if (!website) {
-            return res.status(400).json({ message: "Website not found" });
+            return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
         }
 
         if (!website.slug) {
@@ -221,27 +367,41 @@ export const deployWebsite = async (req, res) => {
         website.deployUrl = `${process.env.FRONTEND_URL}/site/${website.slug}`;
         await website.save();
 
-        return res.status(200).json({ url: website.deployUrl });
+        return sendSuccess(res, { url: website.deployUrl });
 
     } catch (error) {
         console.error("deployWebsite error:", error.message);
-        return res.status(500).json({ message: "Server error during deployment" });
+        return sendError(res, "DEPLOY_FAILED", "Server error during deployment", 500);
     }
 };
 
 // ─── Get By Slug (Public) ────────────────────────────────────────────────────
 export const getBySlug = async (req, res) => {
     try {
-        const website = await Website.findOne({ slug: req.params.slug });
+        const slugValidation = validateText({
+            value: req.params.slug,
+            field: "Slug",
+            min: 3,
+            max: 100,
+        });
 
-        if (!website) {
-            return res.status(400).json({ message: "Website not found" });
+        if (!slugValidation.valid || !/^[a-z0-9-]+$/.test(slugValidation.value)) {
+            return sendError(res, "INVALID_SLUG", "Invalid site slug", 400);
         }
 
-        return res.status(200).json(website);
+        const website = await Website.findOne({
+            slug: slugValidation.value,
+            deployed: true,
+        }).lean();
+
+        if (!website) {
+            return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+        }
+
+        return sendSuccess(res, { website });
 
     } catch (error) {
         console.error("getBySlug error:", error.message);
-        return res.status(500).json({ message: "Server error" });
+        return sendError(res, "WEBSITE_FETCH_FAILED", "Server error", 500);
     }
 };

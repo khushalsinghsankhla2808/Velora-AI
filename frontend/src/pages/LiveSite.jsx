@@ -14,9 +14,9 @@ const LiveSite = () => {
         const result = await axios.get(
           `${import.meta.env.VITE_SERVER_URL}/api/website/site/${slug}`,
         );
-        setWebsite(result.data);
+        setWebsite(result.data.data.website);
       } catch (error) {
-        setError(error.response?.data?.message || "Website not found");
+        setError(error.response?.data?.error?.message || "Website not found");
       }
     };
 

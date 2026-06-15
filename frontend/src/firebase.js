@@ -11,11 +11,17 @@ import {
 // Firebase Configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: "velora-ai-32af8.firebaseapp.com",
-  projectId: "velora-ai-32af8",
-  storageBucket: "velora-ai-32af8.firebasestorage.app",
-  messagingSenderId: "801465411117",
-  appId: "1:801465411117:web:0901017a52d6771ddd3aa4",
+  authDomain:
+    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "velora-ai-32af8.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "velora-ai-32af8",
+  storageBucket:
+    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ||
+    "velora-ai-32af8.firebasestorage.app",
+  messagingSenderId:
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "801465411117",
+  appId:
+    import.meta.env.VITE_FIREBASE_APP_ID ||
+    "1:801465411117:web:0901017a52d6771ddd3aa4",
 };
 
 // Initialize Firebase

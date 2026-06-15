@@ -59,17 +59,17 @@ const WebsiteEditor = () => {
         { withCredentials: true },
       );
 
-      setMessages((m) => [...m, { role: "ai", content: result.data.message }]);
-      setCode(result.data.code);
+      setMessages((m) => [...m, { role: "ai", content: result.data.data.message }]);
+      setCode(result.data.data.code);
       dispatch(
-        setUserData({ ...userData, credits: result.data.remainingCredits }),
+        setUserData({ ...userData, credits: result.data.data.remainingCredits }),
       );
     } catch (error) {
       setMessages((m) => [
         ...m,
         {
           role: "ai",
-          content: error.response?.data?.message || "Update failed",
+          content: error.response?.data?.error?.message || "Update failed",
         },
       ]);
     } finally {
@@ -82,12 +82,13 @@ const WebsiteEditor = () => {
       `${import.meta.env.VITE_SERVER_URL}/api/website/deploy/${website._id}`,
       { withCredentials: true },
     );
+    const url = result.data.data.url;
     setWebsite((current) => ({
       ...current,
       deployed: true,
-      deployUrl: result.data.url,
+      deployUrl: url,
     }));
-    window.open(result.data.url, "_blank");
+    window.open(url, "_blank");
   };
 
   useEffect(() => {
@@ -115,11 +116,11 @@ const WebsiteEditor = () => {
           `${import.meta.env.VITE_SERVER_URL}/api/website/getbyid/${id}`,
           { withCredentials: true },
         );
-        setWebsite(result.data);
-        setCode(result.data.latestCode);
-        setMessages(result.data.conversation || []);
+        setWebsite(result.data.data.website);
+        setCode(result.data.data.website.latestCode);
+        setMessages(result.data.data.website.conversation || []);
       } catch (error) {
-        setError(error.response?.data?.message || "Website not found");
+        setError(error.response?.data?.error?.message || "Website not found");
       }
     };
 

@@ -5,29 +5,23 @@ import "dotenv/config";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
+import { validateEnv } from "./config/env.js";
 import connectDB from "./database/db.js";
 import authRoute from "./routes/authRoutes.js";
 import websiteRoute from "./routes/websiteRoute.js";
 import paymentRoute from "./routes/paymentRoute.js";
 import creditRoute from "./routes/creditRoute.js";
+import { corsOptions, rateLimiter, securityHeaders } from "./middlewares/security.js";
+import { sendError } from "./utils/apiResponse.js";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
 // ======================================
-// Firebase Popup Fix
-// ======================================
-app.use((req, res, next) => {
-  res.setHeader(
-    "Cross-Origin-Opener-Policy",
-    "same-origin-allow-popups"
-  );
-  next();
-});
-
-// ======================================
 // Middleware
 // ======================================
+app.use(securityHeaders);
+app.use(rateLimiter);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -41,20 +35,20 @@ app.use((req, res, next) => {
 });
 
 // ======================================
-// CORS (Temporary Debug Version)
+// CORS
 // ======================================
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-  })
-);
+app.use(cors(corsOptions));
 
 // ======================================
 // Health Check Route
 // ======================================
 app.get("/", (req, res) => {
-  res.status(200).send("Velora AI Backend Running 🚀");
+  res.status(200).json({
+    success: true,
+    data: {
+      message: "Velora AI Backend Running",
+    },
+  });
 });
 
 // ======================================
@@ -64,6 +58,10 @@ app.use("/api/auth", authRoute);
 app.use("/api/website", websiteRoute);
 app.use("/api/payment", paymentRoute);
 app.use("/api/credits", creditRoute);
+app.use("/api/v1/auth", authRoute);
+app.use("/api/v1/website", websiteRoute);
+app.use("/api/v1/payment", paymentRoute);
+app.use("/api/v1/credits", creditRoute);
 
 // ======================================
 // Global Error Handler
@@ -71,10 +69,12 @@ app.use("/api/credits", creditRoute);
 app.use((err, req, res, next) => {
   console.error("Server Error:", err);
 
-  res.status(500).json({
-    success: false,
-    message: err.message || "Internal Server Error",
-  });
+  return sendError(
+    res,
+    err.message === "Origin not allowed by CORS" ? "CORS_NOT_ALLOWED" : "INTERNAL_ERROR",
+    err.message || "Internal Server Error",
+    err.message === "Origin not allowed by CORS" ? 403 : 500,
+  );
 });
 
 // ======================================
@@ -82,6 +82,7 @@ app.use((err, req, res, next) => {
 // ======================================
 const startServer = async () => {
   try {
+    validateEnv();
     await connectDB();
 
     app.listen(PORT, () => {

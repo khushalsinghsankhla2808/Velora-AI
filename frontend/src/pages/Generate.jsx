@@ -107,16 +107,16 @@ const Generate = () => {
       dispatch(
         setUserData({
           ...userData,
-          credits: res.data.remainingCredits,
+          credits: res.data.data.remainingCredits,
         }),
       );
 
       setTimeout(() => {
-        navigate("/editor/" + res.data.websiteId);
+        navigate("/editor/" + res.data.data.websiteId);
       }, 500);
     } catch (err) {
       setError(
-        err.response?.data?.message ||
+        err.response?.data?.error?.message ||
           "Something went wrong. Please try again.",
       );
     } finally {

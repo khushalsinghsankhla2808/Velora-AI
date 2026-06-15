@@ -22,4 +22,7 @@ const websiteSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+websiteSchema.index({ user: 1, updatedAt: -1 });
+websiteSchema.index({ slug: 1, deployed: 1 });
+
 export const Website = mongoose.model("Website", websiteSchema);

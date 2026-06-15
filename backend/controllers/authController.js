@@ -6,6 +6,7 @@ import {
   getFirebaseAuth,
   hasFirebaseAdminCredentials,
 } from "../config/firebaseAdmin.js";
+import { sendError, sendSuccess } from "../utils/apiResponse.js";
 
 const decodeJwtPayload = (token) => {
   const payload = token.split(".")[1];
@@ -42,7 +43,10 @@ export const googleAuth = async (req, res) => {
     if (!idToken) {
       return res.status(400).json({
         success: false,
-        message: "Firebase ID token is required",
+        error: {
+          code: "FIREBASE_TOKEN_REQUIRED",
+          message: "Firebase ID token is required",
+        },
       });
     }
 
@@ -54,7 +58,10 @@ export const googleAuth = async (req, res) => {
     if (!email || !name) {
       return res.status(400).json({
         success: false,
-        message: "Verified Google account must include name and email",
+        error: {
+          code: "GOOGLE_PROFILE_INCOMPLETE",
+          message: "Verified Google account must include name and email",
+        },
       });
     }
 
@@ -102,10 +109,7 @@ export const googleAuth = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    return res.status(200).json({
-      success: true,
-      user,
-    });
+    return sendSuccess(res, { user });
   } catch (error) {
     console.error("GoogleAuth Error:", error.message);
 
@@ -113,12 +117,14 @@ export const googleAuth = async (req, res) => {
       "Firebase Admin credentials missing",
     );
 
-    return res.status(isFirebaseConfigError ? 500 : 401).json({
-      success: false,
-      message: isFirebaseConfigError
+    return sendError(
+      res,
+      isFirebaseConfigError ? "FIREBASE_ADMIN_MISSING" : "GOOGLE_AUTH_FAILED",
+      isFirebaseConfigError
         ? "Firebase Admin credentials are missing on the backend"
         : "Google authentication failed",
-    });
+      isFirebaseConfigError ? 500 : 401,
+    );
   }
 };
 
@@ -130,14 +136,8 @@ export const logoutUser = async (req, res) => {
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "User logged out successfully",
-    });
+    return sendSuccess(res, { message: "User logged out successfully" });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return sendError(res, "LOGOUT_FAILED", error.message, 500);
   }
 };

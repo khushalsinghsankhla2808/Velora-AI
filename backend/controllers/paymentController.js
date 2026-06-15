@@ -5,14 +5,27 @@ import { CreditTransaction } from "../models/creditTransactionModel.js";
 import { Payment } from "../models/paymentModel.js";
 import { User } from "../models/userMODEL.js";
 import { PLANS } from "../config/plan.js";
+import { sendError, sendSuccess } from "../utils/apiResponse.js";
+import { validateText } from "../utils/validation.js";
 
 export const createOrder = async (req, res) => {
   try {
     const { planId } = req.body;
-    const plan = PLANS[planId];
+    const planValidation = validateText({
+      value: planId,
+      field: "Plan",
+      min: 3,
+      max: 30,
+    });
+
+    if (!planValidation.valid) {
+      return sendError(res, "INVALID_PLAN", planValidation.message, 400);
+    }
+
+    const plan = PLANS[planValidation.value];
 
     if (!plan || plan.price <= 0) {
-      return res.status(400).json({ message: "Invalid plan data" });
+      return sendError(res, "INVALID_PLAN", "Invalid plan data", 400);
     }
 
     const razorpayOrder = await razorpayInstance.orders.create({
@@ -23,16 +36,16 @@ export const createOrder = async (req, res) => {
 
     await Payment.create({
       userId: req.user._id,
-      planId,
+      planId: planValidation.value,
       amount: plan.price,
       credits: plan.credits,
       razorpayOrderId: razorpayOrder.id,
       status: "pending",
     });
 
-    return res.json(razorpayOrder);
+    return sendSuccess(res, { order: razorpayOrder });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return sendError(res, "ORDER_CREATE_FAILED", error.message, 500);
   }
 };
 
@@ -40,30 +53,62 @@ export const verifyPayment = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
       req.body;
-    const body = razorpay_order_id + "|" + razorpay_payment_id;
+
+    const orderValidation = validateText({
+      value: razorpay_order_id,
+      field: "Razorpay order id",
+      min: 5,
+      max: 100,
+    });
+    const paymentValidation = validateText({
+      value: razorpay_payment_id,
+      field: "Razorpay payment id",
+      min: 5,
+      max: 100,
+    });
+    const signatureValidation = validateText({
+      value: razorpay_signature,
+      field: "Razorpay signature",
+      min: 20,
+      max: 200,
+    });
+
+    if (
+      !orderValidation.valid ||
+      !paymentValidation.valid ||
+      !signatureValidation.valid
+    ) {
+      return sendError(res, "INVALID_PAYMENT_PAYLOAD", "Payment verification payload is invalid", 400);
+    }
+
+    const verifiedOrderId = orderValidation.value;
+    const verifiedPaymentId = paymentValidation.value;
+    const verifiedSignature = signatureValidation.value;
+    const body = verifiedOrderId + "|" + verifiedPaymentId;
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_SECRET)
       .update(body)
       .digest("hex");
 
-    if (expectedSignature !== razorpay_signature) {
-      return res.status(400).json({ message: "Invalid Payment Signature" });
+    if (expectedSignature !== verifiedSignature) {
+      return sendError(res, "INVALID_PAYMENT_SIGNATURE", "Invalid Payment Signature", 400);
     }
 
     const payment = await Payment.findOne({
-      razorpayOrderId: razorpay_order_id,
+      razorpayOrderId: verifiedOrderId,
     });
 
     if (!payment) {
-      return res.status(400).json({ message: "Payment not found" });
+      return sendError(res, "PAYMENT_NOT_FOUND", "Payment not found", 404);
     }
 
     if (payment.status === "paid") {
-      return res.json({ message: "Already processed" });
+      const user = await User.findById(payment.userId);
+      return sendSuccess(res, { message: "Already processed", user });
     }
 
     payment.status = "paid";
-    payment.razorpayPaymentId = razorpay_payment_id;
+    payment.razorpayPaymentId = verifiedPaymentId;
     await payment.save();
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -85,12 +130,11 @@ export const verifyPayment = async (req, res) => {
       },
     });
 
-    return res.json({
-      success: true,
+    return sendSuccess(res, {
       message: "Payment verified and credits added",
       user: updatedUser,
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return sendError(res, "PAYMENT_VERIFY_FAILED", error.message, 500);
   }
 };

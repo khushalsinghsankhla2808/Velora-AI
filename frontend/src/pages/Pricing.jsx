@@ -86,20 +86,21 @@ const Pricing = () => {
         { withCredentials: true },
       );
 
+      const order = result.data.data.order;
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: result.data.amount,
+        amount: order.amount,
         currency: "INR",
         name: "Velora AI",
         description: plan.name + " - " + plan.credits + " Credits",
-        order_id: result.data.id,
+        order_id: order.id,
         handler: async function (response) {
           const verify = await axios.post(
             `${import.meta.env.VITE_SERVER_URL}/api/payment/verify`,
             response,
             { withCredentials: true },
           );
-          dispatch(setUserData(verify.data.user));
+          dispatch(setUserData(verify.data.data.user));
           navigate("/dashboard");
         },
         theme: { color: "#4f46e5" },

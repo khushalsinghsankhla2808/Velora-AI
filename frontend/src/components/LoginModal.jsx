@@ -15,7 +15,7 @@ const LoginModal = ({ open, onClose }) => {
 
   const getAuthErrorMessage = (error) => {
     const firebaseCode = error.code;
-    const backendMessage = error.response?.data?.message;
+    const backendMessage = error.response?.data?.error?.message;
 
     if (firebaseCode === "auth/unauthorized-domain") {
       return "This domain is not allowed in Firebase. Open http://localhost:5173 or add 127.0.0.1 in Firebase Auth.";
@@ -45,7 +45,7 @@ const LoginModal = ({ open, onClose }) => {
         { withCredentials: true },
       );
 
-      dispatch(setUserData(data.user));
+      dispatch(setUserData(data.data.user));
       onClose();
     } catch (error) {
       console.log("Auth Error:", error.response?.data || error.message);

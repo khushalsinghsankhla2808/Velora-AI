@@ -31,10 +31,10 @@ const Navbar = () => {
         { withCredentials: true },
       );
 
-      setCreditHistory(data);
+      setCreditHistory(data.data.transactions);
     } catch (error) {
       setCreditHistoryError(
-        error.response?.data?.message || "Unable to load credit history",
+        error.response?.data?.error?.message || "Unable to load credit history",
       );
     } finally {
       setCreditHistoryLoading(false);
