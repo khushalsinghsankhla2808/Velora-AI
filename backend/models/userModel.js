@@ -1,4 +1,4 @@
-// PATH: backend/models/userMODEL.js
+// PATH: backend/models/userModel.js
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(

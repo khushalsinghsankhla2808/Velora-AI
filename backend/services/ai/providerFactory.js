@@ -4,6 +4,7 @@ import { anthropicProvider } from "./anthropicProvider.js";
 import { deepseekProvider } from "./deepseekProvider.js";
 import { geminiProvider } from "./geminiProvider.js";
 import { llamaProvider } from "./llamaProvider.js";
+import { mistralProvider } from "./mistralProvider.js";
 import { openaiProvider } from "./openaiProvider.js";
 import { qwenProvider } from "./qwenProvider.js";
 
@@ -12,6 +13,7 @@ const providers = {
   deepseek: deepseekProvider,
   gemini: geminiProvider,
   llama: llamaProvider,
+  mistral: mistralProvider,
   openai: openaiProvider,
   qwen: qwenProvider,
 };

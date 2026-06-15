@@ -38,6 +38,10 @@ app.use((req, res, next) => {
 // CORS
 // ======================================
 app.use(cors(corsOptions));
+// (Express 5: skip app.options wildcard here to avoid path-to-regexp errors)
+
+
+
 
 // ======================================
 // Health Check Route

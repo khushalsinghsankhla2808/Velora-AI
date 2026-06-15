@@ -3,7 +3,7 @@
 import { providerFactory } from "../services/ai/providerFactory.js";
 import extractJson from "../utils/extractJson.js";
 import { Website } from "../models/websiteModel.js";
-import { User } from "../models/userMODEL.js";
+import { User } from "../models/userModel.js";
 import { CreditTransaction } from "../models/creditTransactionModel.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { isValidObjectId, parsePagination, validateText } from "../utils/validation.js";
@@ -29,6 +29,21 @@ const ALLOWED_CODE_PREFERENCES = new Set([
 const validateModel = (model) => {
     if (!model) return "google/gemini-2.0-flash-exp:free";
     return ALLOWED_MODELS.has(model) ? model : null;
+};
+
+const getProviderNameFromModel = (model) => {
+    if (model.includes("gemini")) return "gemini";
+    if (model.includes("deepseek")) return "deepseek";
+    if (model.includes("llama")) return "llama";
+    if (model.includes("mistral")) return "mistral";
+    return "gemini";
+};
+
+const generateResponse = async (prompt, model) => {
+    const providerName = getProviderNameFromModel(model);
+    const provider = providerFactory(providerName);
+    const result = await provider.generate({ prompt, model });
+    return result.content;
 };
 
 // ─── Generate Website ────────────────────────────────────────────────────────

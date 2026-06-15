@@ -1,9 +1,9 @@
-// PATH: backend/controllers/paymentController.js
+import mongoose from "mongoose";
 import crypto from "crypto";
 import razorpayInstance from "../config/razorpay.js";
 import { CreditTransaction } from "../models/creditTransactionModel.js";
 import { Payment } from "../models/paymentModel.js";
-import { User } from "../models/userMODEL.js";
+import { User } from "../models/userModel.js";
 import { PLANS } from "../config/plan.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { validateText } from "../utils/validation.js";
@@ -107,33 +107,55 @@ export const verifyPayment = async (req, res) => {
       return sendSuccess(res, { message: "Already processed", user });
     }
 
-    payment.status = "paid";
-    payment.razorpayPaymentId = verifiedPaymentId;
-    await payment.save();
+    const session = await mongoose.startSession();
+    try {
+      session.startTransaction();
 
-    const updatedUser = await User.findByIdAndUpdate(
-      payment.userId,
-      { $inc: { credits: payment.credits }, $set: { plan: payment.planId } },
-      { new: true },
-    );
-    await CreditTransaction.create({
-      user: payment.userId,
-      type: "credit",
-      amount: payment.credits,
-      balanceAfter: updatedUser.credits,
-      reason: "plan_purchase",
-      description: `${payment.planId} plan purchase`,
-      referenceId: payment._id.toString(),
-      metadata: {
-        razorpayOrderId: payment.razorpayOrderId,
-        razorpayPaymentId: payment.razorpayPaymentId,
-      },
-    });
+      payment.status = "paid";
+      payment.razorpayPaymentId = verifiedPaymentId;
+      await payment.save({ session });
 
-    return sendSuccess(res, {
-      message: "Payment verified and credits added",
-      user: updatedUser,
-    });
+      const updatedUser = await User.findByIdAndUpdate(
+        payment.userId,
+        { $inc: { credits: payment.credits }, $set: { plan: payment.planId } },
+        { new: true, session },
+      );
+
+      if (!updatedUser) {
+        throw new Error("User update failed during payment verification");
+      }
+
+      await CreditTransaction.create(
+        [
+          {
+            user: payment.userId,
+            type: "credit",
+            amount: payment.credits,
+            balanceAfter: updatedUser.credits,
+            reason: "plan_purchase",
+            description: `${payment.planId} plan purchase`,
+            referenceId: payment._id.toString(),
+            metadata: {
+              razorpayOrderId: payment.razorpayOrderId,
+              razorpayPaymentId: payment.razorpayPaymentId,
+            },
+          },
+        ],
+        { session },
+      );
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return sendSuccess(res, {
+        message: "Payment verified and credits added",
+        user: updatedUser,
+      });
+    } catch (transactionError) {
+      await session.abortTransaction();
+      session.endSession();
+      throw transactionError;
+    }
   } catch (error) {
     return sendError(res, "PAYMENT_VERIFY_FAILED", error.message, 500);
   }
