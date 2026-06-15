@@ -1,6 +1,6 @@
 // PATH: backend/controllers/websiteController.js
 
-import { generateResponse } from "../config/openRouter.js";
+import { providerFactory } from "../services/ai/providerFactory.js";
 import extractJson from "../utils/extractJson.js";
 import { Website } from "../models/websiteModel.js";
 import { User } from "../models/userMODEL.js";
@@ -10,6 +10,7 @@ import { isValidObjectId, parsePagination, validateText } from "../utils/validat
 
 const GENERATE_COST = 10;
 const UPDATE_COST = 5;
+const DEFAULT_PROVIDER_NAME = "gemini";
 const ALLOWED_MODELS = new Set([
     "google/gemini-2.0-flash-exp:free",
     "deepseek/deepseek-r1:free",
