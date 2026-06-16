@@ -8,9 +8,20 @@ frontend/node_modules/
 backend/.env
 frontend/.env
 
+.env.example
+backend/.env.example
+frontend/.env.example
+
 # Build Files
 dist/
 build/
 
 # Logs
 *.log
+
+# ══════════════════════════════════════════
+# AGENT INSTRUCTIONS (local only)
+# ══════════════════════════════════════════
+AGENTS.md
+backend/AGENTS.md
+frontend/AGENTS.md

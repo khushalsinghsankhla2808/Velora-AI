@@ -12,6 +12,7 @@ import {
 const router = express.Router();
 
 router.post("/order", isAuthenticated, paymentLimiter, validate(CreateOrderSchema), createOrder);
+router.post("/create-order", isAuthenticated, paymentLimiter, validate(CreateOrderSchema), createOrder);
 router.post("/verify", isAuthenticated, paymentLimiter, validate(VerifySchema), verifyPayment);
 
 export default router;

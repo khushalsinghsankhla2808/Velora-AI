@@ -1,3 +1,5 @@
+import "dotenv/config";
+export { callOpenRouter } from "../services/ai/openRouterClient.js";
 import logger from "../utils/logger.js";
 import extractJson from "../utils/extractJson.js";
 

@@ -1,7 +1,6 @@
 // PATH: backend/controllers/websiteController.js
 
-import { providerFactory } from "../services/ai/providerFactory.js";
-import { callAIWithFallback } from "../config/openRouter.js";
+import { callOpenRouter } from "../services/ai/openRouterClient.js";
 import extractJson from "../utils/extractJson.js";
 import { Website } from "../models/websiteModel.js";
 import { User } from "../models/userModel.js";
@@ -60,27 +59,6 @@ const CODE_PREFERENCE_INSTRUCTIONS = {
 const validateModel = (model) => {
     if (!model) return "google/gemini-2.0-flash-exp:free";
     return ALLOWED_MODELS.has(model) ? model : null;
-};
-
-const getProviderNameFromModel = (model) => {
-    if (model.includes("gemini")) return "gemini";
-    if (model.includes("deepseek")) return "deepseek";
-    if (model.includes("llama")) return "llama";
-    if (model.includes("mistral")) return "mistral";
-    if (model.includes("kimi") || model.includes("moonshot")) return "kimi";
-    if (model.includes("minimax")) return "minimax";
-    if (model.includes("qwen")) return "qwen";
-    return "gemini";
-};
-
-const generateResponse = async (prompt, model, userId) => {
-    if (model && model.includes("deepseek")) {
-        return await callAIWithFallback(prompt, { userId });
-    }
-    const providerName = getProviderNameFromModel(model);
-    const provider = providerFactory(providerName);
-    const result = await provider.generate({ prompt, model });
-    return result.content;
 };
 
 export const generateWebsite = async (req, res) => {
@@ -150,13 +128,18 @@ IF YOU RETURN ANYTHING OTHER THAN RAW JSON → RESPONSE IS INVALID.
 
         let parsed = null;
         for (let attempt = 0; attempt < 2; attempt++) {
-            const raw = await generateResponse(
-                attempt === 0 ? masterPrompt : masterPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. NO MARKDOWN. NO BACKTICKS.",
-                model,
-                req.user._id
-            );
-            parsed = extractJson(raw);
-            if (parsed && parsed.code) break;
+            const currentPrompt = attempt === 0 ? masterPrompt : masterPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. NO MARKDOWN. NO BACKTICKS.";
+            const result = await callOpenRouter({
+                prompt: currentPrompt,
+                model: process.env.AI_PRIMARY_MODEL || "deepseek/deepseek-r1",
+                providerName: "DeepSeek",
+                systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
+            });
+            console.log(`Tokens used: ${result.tokensUsed}`);
+            if (result.success) {
+                parsed = extractJson(result.content);
+                if (parsed && parsed.code) break;
+            }
         }
 
         if (!parsed || !parsed.code) {
@@ -265,13 +248,18 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 
         let parsed = null;
         for (let attempt = 0; attempt < 2; attempt++) {
-            const raw = await generateResponse(
-                attempt === 0 ? updatePrompt : updatePrompt + "\n\nRETURN ONLY RAW JSON.",
-                model,
-                req.user._id
-            );
-            parsed = extractJson(raw);
-            if (parsed && parsed.code) break;
+            const currentPrompt = attempt === 0 ? updatePrompt : updatePrompt + "\n\nRETURN ONLY RAW JSON.";
+            const result = await callOpenRouter({
+                prompt: currentPrompt,
+                model: process.env.AI_PRIMARY_MODEL || "deepseek/deepseek-r1",
+                providerName: "DeepSeek",
+                systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
+            });
+            console.log(`Tokens used: ${result.tokensUsed}`);
+            if (result.success) {
+                parsed = extractJson(result.content);
+                if (parsed && parsed.code) break;
+            }
         }
 
         if (!parsed || !parsed.code) {

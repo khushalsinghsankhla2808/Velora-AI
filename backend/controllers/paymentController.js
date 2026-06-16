@@ -43,9 +43,9 @@ export const createOrder = async (req, res) => {
       status: "pending",
     });
 
-    return sendSuccess(res, { order: razorpayOrder });
+    return sendSuccess(res, { order: razorpayOrder }, 201);
   } catch (error) {
-    return sendError(res, "ORDER_CREATE_FAILED", error.message, 500);
+    return sendError(res, "PAYMENT_INIT_FAILED", error.message, 500);
   }
 };
 
@@ -91,7 +91,7 @@ export const verifyPayment = async (req, res) => {
       .digest("hex");
 
     if (expectedSignature !== verifiedSignature) {
-      return sendError(res, "INVALID_PAYMENT_SIGNATURE", "Invalid Payment Signature", 400);
+      return sendError(res, "INVALID_SIGNATURE", "Invalid Payment Signature", 400);
     }
 
     const payment = await Payment.findOne({

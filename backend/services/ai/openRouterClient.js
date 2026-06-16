@@ -1,5 +1,11 @@
 // PATH: backend/services/ai/openRouterClient.js
 
+if (!process.env.OPENROUTER_API_KEY) {
+  throw new Error(
+    "[openRouterClient] OPENROUTER_API_KEY is not set in environment variables."
+  );
+}
+
 const DEFAULT_TIMEOUT_MS = 90000;
 const MAX_ATTEMPTS = 2;
 
@@ -81,8 +87,10 @@ export const callOpenRouter = async ({
     }
   }
 
+  // Infinite recursion is not possible because the fallback model (google/gemini-2.5-pro)
+  // does not match model.includes("deepseek") since it lacks the "deepseek" substring.
   if (model.includes("deepseek")) {
-    console.warn(`DeepSeek call failed on all attempts. Falling back to google/gemini-2.5-pro. Error: ${lastError.message}`);
+    console.error(`[AI Fallback] DeepSeek failed after all attempts. Switching to google/gemini-2.5-pro. Reason: ${lastError.message}`);
     return callOpenRouter({
       prompt,
       model: "google/gemini-2.5-pro",
