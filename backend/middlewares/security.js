@@ -72,6 +72,7 @@ export const globalLimiter = rateLimit({
   legacyHeaders: false,
   message: rateLimitMessage,
   validate: false,
+  skip: () => process.env.NODE_ENV === "test",
 });
 
 /**
@@ -86,6 +87,7 @@ export const generateLimiter = rateLimit({
   legacyHeaders: false,
   message: rateLimitMessage,
   validate: false,
+  skip: () => process.env.NODE_ENV === "test",
 });
 
 /**
@@ -100,6 +102,7 @@ export const updateLimiter = rateLimit({
   legacyHeaders: false,
   message: rateLimitMessage,
   validate: false,
+  skip: () => process.env.NODE_ENV === "test",
 });
 
 /**
@@ -114,4 +117,5 @@ export const paymentLimiter = rateLimit({
   legacyHeaders: false,
   message: rateLimitMessage,
   validate: false,
+  skip: () => process.env.NODE_ENV === "test",
 });

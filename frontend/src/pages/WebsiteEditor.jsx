@@ -1,7 +1,7 @@
 // PATH: frontend/src/pages/WebsiteEditor.jsx
 import React, { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
-import { Code2, Download, Loader2, MessageSquare, Monitor, Rocket, Send, X } from "lucide-react";
+import { Code2, Download, Loader2, MessageSquare, Monitor, Rocket, Send, X, Github } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
@@ -12,6 +12,7 @@ import EditorTabs from "../components/EditorTabs";
 import ChatPanel from "../components/ChatPanel";
 import PreviewToolbar from "../components/PreviewToolbar";
 import DiffPreviewModal from "../components/DiffPreviewModal";
+import GithubExportModal from "../components/GithubExportModal";
 
 const CODE_OPTIONS = [
   { value: "keep",          label: "Keep current style" },
@@ -92,6 +93,7 @@ const WebsiteEditor = () => {
   const [pendingDiff, setPendingDiff] = useState(null);
   const [acceptLoading, setAcceptLoading] = useState(false);
   const [chatRefreshTrigger, setChatRefreshTrigger] = useState(0);
+  const [showGithubModal, setShowGithubModal] = useState(false);
 
   const handleAcceptDiff = async () => {
     if (!pendingDiff) return;
@@ -537,6 +539,13 @@ const WebsiteEditor = () => {
                   </>
                 )}
               </button>
+              <button
+                onClick={() => setShowGithubModal(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                title="Export to GitHub"
+              >
+                <Github size={14} /> Export to GitHub
+              </button>
               {!website.deployed && (
                 <button
                   onClick={handleDeploy}
@@ -655,6 +664,17 @@ const WebsiteEditor = () => {
             onAccept={handleAcceptDiff}
             onReject={handleRejectDiff}
             loading={acceptLoading}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* GitHub Export Modal */}
+      <AnimatePresence>
+        {showGithubModal && (
+          <GithubExportModal
+            id={id}
+            website={website}
+            onClose={() => setShowGithubModal(false)}
           />
         )}
       </AnimatePresence>

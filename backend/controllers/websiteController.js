@@ -12,6 +12,7 @@ import { FileModel } from "../models/fileModel.js";
 import { Chat } from "../models/chatModel.js";
 // archiver is used to programmatically bundle and stream project files as a ZIP archive
 import { ZipArchive } from "archiver";
+import { Octokit } from "@octokit/rest";
 
 const GENERATE_COST = 10;
 const UPDATE_COST = 5;
@@ -871,6 +872,118 @@ export const exportWebsite = async (req, res) => {
     if (!res.headersSent) {
       return sendError(res, "EXPORT_FAILED", "Server error exporting project", 500);
     }
+  }
+};
+
+// ─── Export Project to GitHub ────────────────────────────────────────────────
+export const exportToGithub = async (req, res) => {
+  try {
+    const websiteId = req.params.id;
+    const { githubToken, repoName, isPrivate } = req.body;
+
+    const website = await Website.findById(websiteId);
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+    }
+    if (website.user.toString() !== req.user._id.toString()) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    // Ensure legacy project has files in DB
+    await migrateLegacyProjectToDB(website);
+
+    // Get all files
+    const files = await FileModel.find({ projectId: websiteId }).lean();
+    if (!files || files.length === 0) {
+      return sendError(res, "NO_FILES_FOUND", "No files found to export", 404);
+    }
+
+    // Initialize Octokit client
+    const octokit = new Octokit({ auth: githubToken });
+
+    // Validate the token and get the authenticated user's login name
+    let username;
+    try {
+      const { data: githubUser } = await octokit.users.getAuthenticated();
+      username = githubUser.login;
+    } catch (err) {
+      return sendError(res, "GITHUB_AUTH_FAILED", "Invalid GitHub Personal Access Token", 401);
+    }
+
+    // Create the repository under the user's account
+    let repo;
+    try {
+      const createRes = await octokit.repos.createForAuthenticatedUser({
+        name: repoName,
+        private: isPrivate,
+        auto_init: false, // Don't create README.md to keep it empty
+      });
+      repo = createRes.data;
+    } catch (err) {
+      console.error("Repository creation failed:", err.message);
+      return sendError(
+        res,
+        "GITHUB_REPO_CREATE_FAILED",
+        err.message.includes("name already exists")
+          ? `Repository '${repoName}' already exists on your account`
+          : `Failed to create repository: ${err.message}`,
+        400
+      );
+    }
+
+    // Push files to repository
+    // In an empty repository, there is no default branch.
+    // Pushing the first file (index.html) synchronously creates the branch (main).
+    // Sorting files so index.html goes first.
+    const sortedFiles = [...files].sort((a, b) => {
+      if (a.path === "index.html") return -1;
+      if (b.path === "index.html") return 1;
+      return a.path.localeCompare(b.path);
+    });
+
+    try {
+      // 1. Commit the first file to establish the branch
+      const firstFile = sortedFiles[0];
+      await octokit.repos.createOrUpdateFileContents({
+        owner: username,
+        repo: repoName,
+        path: firstFile.path,
+        message: `Initial commit - create ${firstFile.path}`,
+        content: Buffer.from(firstFile.content || "").toString("base64"),
+        branch: "main",
+      });
+
+      // 2. Commit the remaining files sequentially
+      const otherFiles = sortedFiles.slice(1);
+      for (const file of otherFiles) {
+        await octokit.repos.createOrUpdateFileContents({
+          owner: username,
+          repo: repoName,
+          path: file.path,
+          message: `Add ${file.path}`,
+          content: Buffer.from(file.content || "").toString("base64"),
+          branch: "main",
+        });
+      }
+    } catch (err) {
+      console.error("File commit failed:", err.message);
+      // Clean up the created repository if we failed to push any file to avoid leaving a stale empty repo
+      try {
+        await octokit.repos.delete({ owner: username, repo: repoName });
+      } catch (delErr) {
+        console.error("Failed to clean up repository after commit failure:", delErr.message);
+      }
+      return sendError(res, "GITHUB_PUSH_FAILED", `Failed to push project files: ${err.message}`, 500);
+    }
+
+    return sendSuccess(res, {
+      message: `Project successfully exported to GitHub repository: ${repo.full_name}`,
+      repoUrl: repo.html_url,
+      repoName: repo.full_name,
+    });
+  } catch (error) {
+    console.error("exportToGithub error:", error.message);
+    return sendError(res, "EXPORT_FAILED", "Server error during GitHub export", 500);
   }
 };
 

@@ -130,3 +130,14 @@ export const AcceptChatSchema = z.object({
     })
   ),
 }).passthrough();
+
+/**
+ * Schema for exporting a project to GitHub.
+ */
+export const GithubExportSchema = z.object({
+  githubToken: z.string().min(1, "GitHub Personal Access Token is required"),
+  repoName: z.string().min(1, "Repository name is required").regex(/^[a-zA-Z0-9-_]+$/, {
+    message: "Repository name can only contain letters, numbers, hyphens, and underscores",
+  }),
+  isPrivate: z.boolean().default(false),
+}).passthrough();

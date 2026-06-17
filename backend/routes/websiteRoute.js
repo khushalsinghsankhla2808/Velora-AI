@@ -17,6 +17,7 @@ import {
   ChatHistorySchema,
   ExportSchema,
   AcceptChatSchema,
+  GithubExportSchema,
 } from "../validators/websiteValidator.js";
 import {
   generateWebsite,
@@ -37,6 +38,7 @@ import {
   exportWebsite,
   acceptChatEdit,
   undoChatEdit,
+  exportToGithub,
 } from "../controllers/websiteController.js";
 
 const router = express.Router();
@@ -47,6 +49,7 @@ router.get("/getbyid/:id", isAuthenticated, getWebsiteById);
 router.post("/update/:id", isAuthenticated, updateLimiter, validate(UpdateSchema), changeWebsite);
 router.get("/deploy/:id", isAuthenticated, validate(DeploySchema), deployWebsite);
 router.get("/:id/export", isAuthenticated, updateLimiter, validate(ExportSchema), exportWebsite);
+router.post("/:id/export/github", isAuthenticated, updateLimiter, validate(GithubExportSchema), exportToGithub);
 router.get("/site/:slug", getBySlug);
 
 // File and folder CRUD operations (sub-resources of project/website)
