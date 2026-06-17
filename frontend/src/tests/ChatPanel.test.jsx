@@ -35,11 +35,14 @@ describe("ChatPanel Component Tests", () => {
     },
   };
 
+  let onProposedDiffMock;
+
   beforeEach(() => {
     vi.clearAllMocks();
     onUpdateSuccessMock = vi.fn();
     onFileClickMock = vi.fn();
     setUpdateLoadingMock = vi.fn();
+    onProposedDiffMock = vi.fn();
 
     // Default mock implementation for get chat history
     axios.get.mockResolvedValue({ data: mockChatHistory });
@@ -54,6 +57,7 @@ describe("ChatPanel Component Tests", () => {
         onFileClick={onFileClickMock}
         updateLoading={false}
         setUpdateLoading={setUpdateLoadingMock}
+        onProposedDiff={onProposedDiffMock}
       />
     );
 
@@ -82,6 +86,7 @@ describe("ChatPanel Component Tests", () => {
         onFileClick={onFileClickMock}
         updateLoading={false}
         setUpdateLoading={setUpdateLoadingMock}
+        onProposedDiff={onProposedDiffMock}
       />
     );
 
@@ -95,7 +100,7 @@ describe("ChatPanel Component Tests", () => {
     expect(onFileClickMock).toHaveBeenCalledWith("style.css");
   });
 
-  test("submitting prompt sends request, appends response and fires onUpdateSuccess", async () => {
+  test("submitting prompt sends request and fires onProposedDiff callback", async () => {
     render(
       <ChatPanel
         projectId={projectId}
@@ -104,6 +109,7 @@ describe("ChatPanel Component Tests", () => {
         onFileClick={onFileClickMock}
         updateLoading={false}
         setUpdateLoading={setUpdateLoadingMock}
+        onProposedDiff={onProposedDiffMock}
       />
     );
 
@@ -111,20 +117,15 @@ describe("ChatPanel Component Tests", () => {
       expect(screen.getByPlaceholderText("Ask AI to make targeted edits...")).toBeInTheDocument();
     });
 
-    // Mock post edit response
+    // Mock post edit proposed changes response
     const mockPostResponse = {
       success: true,
       data: {
-        chat: {
-          _id: "m3",
-          role: "assistant",
-          message: "Added title to index.html.",
-          filesChanged: ["index.html"],
-          createdAt: new Date().toISOString(),
-        },
-        remainingCredits: 8,
-        latestCode: "<html></html>",
-        filesChanged: ["index.html"],
+        message: "Added title to index.html.",
+        filesChanged: [
+          { path: "index.html", oldContent: "", newContent: "<title>Hello</title>" }
+        ],
+        tokensUsed: 150,
       },
     };
     axios.post.mockResolvedValue({ data: mockPostResponse });
@@ -145,15 +146,15 @@ describe("ChatPanel Component Tests", () => {
     );
 
     await waitFor(() => {
-      // New assistant reply should render
-      expect(screen.getByText("Added title to index.html.")).toBeInTheDocument();
-    });
-
-    // Should fire success callback
-    expect(onUpdateSuccessMock).toHaveBeenCalledWith({
-      remainingCredits: 8,
-      latestCode: "<html></html>",
-      filesChanged: ["index.html"],
+      // Should fire proposed diff callback
+      expect(onProposedDiffMock).toHaveBeenCalledWith({
+        instruction: "add title tag to index.html",
+        message: "Added title to index.html.",
+        filesChanged: [
+          { path: "index.html", oldContent: "", newContent: "<title>Hello</title>" }
+        ],
+        tokensUsed: 150,
+      });
     });
   });
 
@@ -166,6 +167,7 @@ describe("ChatPanel Component Tests", () => {
         onFileClick={onFileClickMock}
         updateLoading={true}
         setUpdateLoading={setUpdateLoadingMock}
+        onProposedDiff={onProposedDiffMock}
       />
     );
 

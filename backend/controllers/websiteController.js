@@ -10,6 +10,8 @@ import { isValidObjectId, parsePagination, validateText } from "../utils/validat
 import { ensureWebsiteFiles, bundleHTML, saveWebsiteFiles, getLanguageFromPath } from "../utils/migrationHelper.js";
 import { FileModel } from "../models/fileModel.js";
 import { Chat } from "../models/chatModel.js";
+// archiver is used to programmatically bundle and stream project files as a ZIP archive
+import { ZipArchive } from "archiver";
 
 const GENERATE_COST = 10;
 const UPDATE_COST = 5;
@@ -748,67 +750,28 @@ If you do not need to modify any files, return an empty "files" array.
       }
     }
 
-    const filesChangedPaths = [];
+    const filesChanged = [];
     for (const responseFile of parsed.files) {
       const filePath = responseFile.path;
       const fileContent = responseFile.content || "";
-      const fileLanguage = getLanguageFromPath(filePath);
 
       let dbFile = await FileModel.findOne({ projectId, path: filePath });
-      if (dbFile) {
-        dbFile.content = fileContent;
-        dbFile.language = fileLanguage;
-        await dbFile.save();
-      } else {
-        dbFile = await FileModel.create({
-          projectId,
-          path: filePath,
-          content: fileContent,
-          language: fileLanguage,
-        });
-        website.files.push(dbFile._id);
-      }
-      filesChangedPaths.push(filePath);
+      const oldContent = dbFile ? dbFile.content : "";
+      filesChanged.push({
+        path: filePath,
+        oldContent,
+        newContent: fileContent,
+      });
     }
 
-    const updatedFiles = await FileModel.find({ projectId });
-    website.latestCode = bundleHTML(updatedFiles);
-    await website.save();
-
-    // Log chat messages
-    await Chat.create({
-      projectId,
-      userId: req.user._id,
-      role: "user",
-      message: instruction,
-    });
-
-    const assistantChat = await Chat.create({
-      projectId,
-      userId: req.user._id,
-      role: "assistant",
-      message: parsed.message || "I have updated the files according to your request.",
-      filesChanged: filesChangedPaths,
-      tokensUsed: (result && result.tokensUsed) || 0,
-    });
-
-    await CreditTransaction.create({
-      user: req.user._id,
-      type: "debit",
-      amount: CHAT_COST,
-      balanceAfter: user.credits,
-      reason: "website_chat",
-      description: `Targeted edit via chat: ${instruction.slice(0, 60)}`,
-      referenceId: website._id.toString(),
-    });
+    // Refund reserved credits immediately; they will be charged on Accept.
+    await User.findByIdAndUpdate(req.user._id, { $inc: { credits: CHAT_COST } });
     creditsReserved = false;
 
     return sendSuccess(res, {
-      message: parsed.message,
-      filesChanged: filesChangedPaths,
-      latestCode: website.latestCode,
-      remainingCredits: user.credits,
-      chat: assistantChat,
+      message: parsed.message || "I have proposed updates to your files.",
+      filesChanged,
+      tokensUsed: (result && result.tokensUsed) || 0,
     });
 
   } catch (error) {
@@ -856,5 +819,229 @@ export const getChatHistory = async (req, res) => {
   } catch (error) {
     console.error("getChatHistory error:", error.message);
     return sendError(res, "CHAT_HISTORY_FAILED", "Server error retrieving chat history", 500);
+  }
+};
+
+// ─── Export Project as ZIP ──────────────────────────────────────────────────
+export const exportWebsite = async (req, res) => {
+  try {
+    const { websiteId } = req.body;
+
+    const website = await Website.findById(websiteId);
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+    }
+    if (website.user.toString() !== req.user._id.toString()) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    // Ensure legacy project has files in DB
+    await migrateLegacyProjectToDB(website);
+
+    // Get all files
+    const files = await FileModel.find({ projectId: websiteId }).lean();
+    if (!files || files.length === 0) {
+      return sendError(res, "NO_FILES_FOUND", "No files found to export", 404);
+    }
+
+    // Standardize file name
+    const sanitizedTitle = website.title
+      .replace(/[^a-zA-Z0-9-_]/g, "_")
+      .slice(0, 50) || "website";
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${sanitizedTitle}_export.zip"`
+    );
+
+    const archive = new ZipArchive({
+      zlib: { level: 9 }, // Maximum compression level
+    });
+
+    archive.on("error", (err) => {
+      console.error("ZIP archiver error:", err.message);
+      if (!res.headersSent) {
+        return sendError(res, "EXPORT_ARCHIVE_FAILED", "Failed to create archive", 500);
+      }
+    });
+
+    archive.pipe(res);
+
+    for (const file of files) {
+      archive.append(file.content || "", { name: file.path });
+    }
+
+    await archive.finalize();
+  } catch (error) {
+    console.error("exportWebsite error:", error.message);
+    if (!res.headersSent) {
+      return sendError(res, "EXPORT_FAILED", "Server error exporting project", 500);
+    }
+  }
+};
+
+// ─── Accept AI Chat Edit ────────────────────────────────────────────────────
+export const acceptChatEdit = async (req, res) => {
+  let creditsReserved = false;
+  const CHAT_COST = 2;
+
+  try {
+    const { projectId, instruction, message, tokensUsed, files } = req.body;
+
+    const website = await Website.findById(projectId);
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+    }
+    if (website.user.toString() !== req.user._id.toString()) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    // Deduct credits for the accepted change
+    const user = await User.findOneAndUpdate(
+      { _id: req.user._id, credits: { $gte: CHAT_COST } },
+      { $inc: { credits: -CHAT_COST } },
+      { new: true }
+    );
+
+    if (!user) {
+      return sendError(res, "INSUFFICIENT_CREDITS", "Not enough credits. Minimum 2 credits required.", 402);
+    }
+    creditsReserved = true;
+
+    await migrateLegacyProjectToDB(website);
+
+    const filesChangedPaths = [];
+    for (const file of files) {
+      const filePath = file.path;
+      const fileContent = file.content || "";
+      const fileLanguage = getLanguageFromPath(filePath);
+
+      let dbFile = await FileModel.findOne({ projectId, path: filePath });
+      if (dbFile) {
+        dbFile.previousContent = dbFile.content;
+        dbFile.content = fileContent;
+        dbFile.language = fileLanguage;
+        await dbFile.save();
+      } else {
+        dbFile = await FileModel.create({
+          projectId,
+          path: filePath,
+          content: fileContent,
+          previousContent: "__NEW_FILE__",
+          language: fileLanguage,
+        });
+        website.files.push(dbFile._id);
+      }
+      filesChangedPaths.push(filePath);
+    }
+
+    const updatedFiles = await FileModel.find({ projectId });
+    website.latestCode = bundleHTML(updatedFiles);
+    await website.save();
+
+    // Log chat messages
+    await Chat.create({
+      projectId,
+      userId: req.user._id,
+      role: "user",
+      message: instruction,
+    });
+
+    const assistantChat = await Chat.create({
+      projectId,
+      userId: req.user._id,
+      role: "assistant",
+      message,
+      filesChanged: filesChangedPaths,
+      tokensUsed: tokensUsed || 0,
+    });
+
+    await CreditTransaction.create({
+      user: req.user._id,
+      type: "debit",
+      amount: CHAT_COST,
+      balanceAfter: user.credits,
+      reason: "website_chat",
+      description: `Targeted edit via chat: ${instruction.slice(0, 60)}`,
+      referenceId: website._id.toString(),
+    });
+    creditsReserved = false;
+
+    return sendSuccess(res, {
+      chat: assistantChat,
+      remainingCredits: user.credits,
+      latestCode: website.latestCode,
+      filesChanged: filesChangedPaths,
+    });
+  } catch (error) {
+    if (creditsReserved) {
+      await User.findByIdAndUpdate(req.user._id, { $inc: { credits: CHAT_COST } });
+    }
+    console.error("acceptChatEdit error:", error.message);
+    return sendError(res, "ACCEPT_FAILED", "Server error committing edits", 500);
+  }
+};
+
+// ─── Undo AI Chat Edit ──────────────────────────────────────────────────────
+export const undoChatEdit = async (req, res) => {
+  try {
+    const { projectId } = req.body;
+
+    const website = await Website.findById(projectId);
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+    }
+    if (website.user.toString() !== req.user._id.toString()) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    // Find the latest assistant message
+    const lastAssistantMsg = await Chat.findOne({ projectId, role: "assistant" }).sort({ createdAt: -1 });
+    if (!lastAssistantMsg) {
+      return sendError(res, "NO_CHANGES_TO_UNDO", "No chat changes to undo", 400);
+    }
+
+    // Find the user message right before it
+    const lastUserMsg = await Chat.findOne({
+      projectId,
+      role: "user",
+      createdAt: { $lt: lastAssistantMsg.createdAt }
+    }).sort({ createdAt: -1 });
+
+    const filesChanged = lastAssistantMsg.filesChanged || [];
+    for (const filePath of filesChanged) {
+      const dbFile = await FileModel.findOne({ projectId, path: filePath });
+      if (dbFile) {
+        if (dbFile.previousContent === "__NEW_FILE__") {
+          // Delete newly created file
+          await FileModel.deleteOne({ _id: dbFile._id });
+          website.files = website.files.filter(id => id.toString() !== dbFile._id.toString());
+        } else if (dbFile.previousContent !== null) {
+          // Restore previous content
+          dbFile.content = dbFile.previousContent;
+          dbFile.previousContent = null;
+          await dbFile.save();
+        }
+      }
+    }
+
+    const updatedFiles = await FileModel.find({ projectId });
+    website.latestCode = bundleHTML(updatedFiles);
+    await website.save();
+
+    // Delete the chat messages from history
+    await Chat.deleteOne({ _id: lastAssistantMsg._id });
+    if (lastUserMsg) {
+      await Chat.deleteOne({ _id: lastUserMsg._id });
+    }
+
+    return sendSuccess(res, {
+      message: "Undo completed successfully",
+      latestCode: website.latestCode,
+    });
+  } catch (error) {
+    console.error("undoChatEdit error:", error.message);
+    return sendError(res, "UNDO_FAILED", "Server error undoing changes", 500);
   }
 };

@@ -104,3 +104,29 @@ export const ChatHistorySchema = z.object({
   projectId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid project ID format" }),
   before: z.string().optional(),
 }).passthrough();
+
+/**
+ * Schema for exporting a project.
+ */
+export const ExportSchema = z.object({
+  websiteId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid website ID format" }),
+}).passthrough();
+
+/**
+ * Schema for accepting AI targeted chat edits.
+ */
+export const AcceptChatSchema = z.object({
+  projectId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid project ID format" }),
+  instruction: z.string().min(5).max(1000),
+  message: z.string(),
+  tokensUsed: z.number().optional(),
+  files: z.array(
+    z.object({
+      path: z.string().min(1).max(255).refine(
+        p => !p.includes('..') && !p.startsWith('/') && !p.startsWith('\\'),
+        { message: "Invalid path format or path traversal attempt" }
+      ),
+      content: z.string(),
+    })
+  ),
+}).passthrough();

@@ -138,8 +138,23 @@ describe("Project AI Chat Integration Tests", () => {
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.success, true);
     assert.strictEqual(res.body.data.message, "I updated style.css and added script.js.");
-    assert.deepStrictEqual(res.body.data.filesChanged, ["style.css", "script.js"]);
-    assert.strictEqual(res.body.data.remainingCredits, 8); // 10 - 2 = 8
+    
+    // Accept the proposed changes
+    const acceptRes = await request(app)
+      .post(`/api/website/${testWebsite._id}/chat/accept`)
+      .set("Cookie", `token=${ownerToken}`)
+      .send({
+        projectId: testWebsite._id.toString(),
+        instruction: "change bg to blue and add script.js",
+        message: res.body.data.message,
+        tokensUsed: res.body.data.tokensUsed,
+        files: res.body.data.filesChanged.map(f => ({ path: f.path, content: f.newContent }))
+      });
+
+    assert.strictEqual(acceptRes.status, 200);
+    assert.strictEqual(acceptRes.body.success, true);
+    assert.deepStrictEqual(acceptRes.body.data.filesChanged, ["style.css", "script.js"]);
+    assert.strictEqual(acceptRes.body.data.remainingCredits, 8); // 10 - 2 = 8
 
     // Verify database state:
     // 1. Unmentioned file (index.html) is untouched
@@ -316,5 +331,66 @@ describe("Project AI Chat Integration Tests", () => {
     assert.strictEqual(resPaginated.body.data.messages.length, 2);
     assert.strictEqual(resPaginated.body.data.messages[0].message, "Message 1");
     assert.strictEqual(resPaginated.body.data.messages[1].message, "Reply 1");
+  });
+
+  test("Targeted AI chat edits cannot delete files that the user did not ask to modify/delete", async () => {
+    // We already have index.html and style.css seeded in beforeEach.
+    // The AI mock response will only return updates to style.css.
+    const mockAIResponse = {
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              message: "I updated style.css only.",
+              files: [
+                { path: "style.css", content: "body { color: green; }" },
+              ],
+            }),
+          },
+        },
+      ],
+      usage: {
+        total_tokens: 150,
+      },
+    };
+
+    setupMockFetch(mockAIResponse);
+
+    const res = await request(app)
+      .post(`/api/website/${testWebsite._id}/chat`)
+      .set("Cookie", `token=${ownerToken}`)
+      .send({ instruction: "change text color in style.css" });
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.success, true);
+
+    // Accept the proposed changes
+    const acceptRes = await request(app)
+      .post(`/api/website/${testWebsite._id}/chat/accept`)
+      .set("Cookie", `token=${ownerToken}`)
+      .send({
+        projectId: testWebsite._id.toString(),
+        instruction: "change text color in style.css",
+        message: res.body.data.message,
+        tokensUsed: res.body.data.tokensUsed,
+        files: res.body.data.filesChanged.map(f => ({ path: f.path, content: f.newContent }))
+      });
+
+    assert.strictEqual(acceptRes.status, 200);
+    assert.strictEqual(acceptRes.body.success, true);
+
+    // Verify index.html still exists in database and is unchanged
+    const dbIndex = await FileModel.findOne({ projectId: testWebsite._id, path: "index.html" });
+    assert.ok(dbIndex);
+    assert.strictEqual(dbIndex.content, "<html><body>Initial</body></html>");
+
+    // Verify style.css is updated
+    const dbStyle = await FileModel.findOne({ projectId: testWebsite._id, path: "style.css" });
+    assert.ok(dbStyle);
+    assert.strictEqual(dbStyle.content, "body { color: green; }");
+
+    // Verify the project files array in the website document still contains both files
+    const dbWebsite = await Website.findById(testWebsite._id);
+    assert.strictEqual(dbWebsite.files.length, 2);
   });
 });

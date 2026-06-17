@@ -1,6 +1,6 @@
 // PATH: frontend/src/components/ChatPanel.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { Send, X, AlertCircle, Loader2, Sparkles, FileCode } from "lucide-react";
+import { Send, X, AlertCircle, Loader2, Sparkles, FileCode, RotateCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 
@@ -19,6 +19,8 @@ export default function ChatPanel({
   onFileClick,
   updateLoading,
   setUpdateLoading,
+  onProposedDiff,
+  chatRefreshTrigger,
 }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -26,6 +28,33 @@ export default function ChatPanel({
   const [hasMore, setHasMore] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [thinkingIndex, setThinkingIndex] = useState(0);
+  const [undoLoading, setUndoLoading] = useState(false);
+
+  const handleUndo = async () => {
+    if (undoLoading || updateLoading) return;
+    setError("");
+    setUndoLoading(true);
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_SERVER_URL}/api/website/${projectId}/chat/undo`,
+        { projectId },
+        { withCredentials: true }
+      );
+      if (response.data?.success) {
+        const { latestCode } = response.data.data;
+        if (onUpdateSuccess) {
+          onUpdateSuccess({ latestCode, remainingCredits: null });
+        }
+        await fetchChatHistory();
+      }
+    } catch (err) {
+      console.error("Undo failed:", err);
+      const errMsg = err.response?.data?.error?.message || "Failed to undo last edit";
+      setError(errMsg);
+    } finally {
+      setUndoLoading(false);
+    }
+  };
 
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
@@ -59,7 +88,7 @@ export default function ChatPanel({
 
   useEffect(() => {
     fetchChatHistory();
-  }, [projectId]);
+  }, [projectId, chatRefreshTrigger]);
 
   // Handle thinking ticker animation
   useEffect(() => {
@@ -104,14 +133,18 @@ export default function ChatPanel({
       );
 
       if (response.data?.success) {
-        const { chat: assistantMsg, remainingCredits, latestCode, filesChanged } = response.data.data;
-        // Append assistant reply
-        setMessages((prev) => [...prev, assistantMsg]);
-        setTimeout(scrollToBottom, 50);
-
-        // Notify parent workspace to sync
-        if (onUpdateSuccess) {
-          onUpdateSuccess({ remainingCredits, latestCode, filesChanged });
+        const { message: proposedMsg, filesChanged, tokensUsed } = response.data.data;
+        
+        // Remove optimistic user message from active state until Accepted
+        setMessages((prev) => prev.filter((m) => m._id !== tempUserMsg._id));
+        
+        if (onProposedDiff) {
+          onProposedDiff({
+            instruction: instructionText,
+            message: proposedMsg,
+            filesChanged,
+            tokensUsed,
+          });
         }
       }
     } catch (err) {
@@ -132,6 +165,8 @@ export default function ChatPanel({
     }
   };
 
+  const hasHistory = messages.length > 0;
+
   return (
     <div className="flex flex-col h-full bg-zinc-950/90 text-zinc-100 select-none">
       {/* Header */}
@@ -142,13 +177,28 @@ export default function ChatPanel({
             AI Targeted Edit
           </span>
         </div>
-        <button
-          onClick={onClose}
-          aria-label="Close chat"
-          className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
-        >
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleUndo}
+            disabled={undoLoading || updateLoading || !hasHistory}
+            className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer flex items-center gap-1.5 text-[10px] font-medium disabled:opacity-30 disabled:pointer-events-none"
+            title="Undo last AI edit"
+          >
+            {undoLoading ? (
+              <Loader2 className="animate-spin" size={12} />
+            ) : (
+              <RotateCcw size={12} />
+            )}
+            <span>Undo</span>
+          </button>
+          <button
+            onClick={onClose}
+            aria-label="Close chat"
+            className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Messages list */}

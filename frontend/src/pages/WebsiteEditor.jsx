@@ -1,7 +1,7 @@
 // PATH: frontend/src/pages/WebsiteEditor.jsx
 import React, { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
-import { Code2, MessageSquare, Monitor, Rocket, Send, X } from "lucide-react";
+import { Code2, Download, Loader2, MessageSquare, Monitor, Rocket, Send, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
@@ -10,6 +10,8 @@ import { setUserData } from "../redux/userSlice";
 import FileExplorer from "../components/FileExplorer";
 import EditorTabs from "../components/EditorTabs";
 import ChatPanel from "../components/ChatPanel";
+import PreviewToolbar from "../components/PreviewToolbar";
+import DiffPreviewModal from "../components/DiffPreviewModal";
 
 const CODE_OPTIONS = [
   { value: "keep",          label: "Keep current style" },
@@ -84,6 +86,89 @@ const WebsiteEditor = () => {
   const [error, setError] = useState("");
   const [code, setCode] = useState("");
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [previewMode, setPreviewMode] = useState("desktop");
+
+  const [pendingDiff, setPendingDiff] = useState(null);
+  const [acceptLoading, setAcceptLoading] = useState(false);
+  const [chatRefreshTrigger, setChatRefreshTrigger] = useState(0);
+
+  const handleAcceptDiff = async () => {
+    if (!pendingDiff) return;
+    setAcceptLoading(true);
+    try {
+      const payload = {
+        projectId: id,
+        instruction: pendingDiff.instruction,
+        message: pendingDiff.message,
+        tokensUsed: pendingDiff.tokensUsed,
+        files: pendingDiff.filesChanged.map(f => ({
+          path: f.path,
+          content: f.newContent,
+        })),
+      };
+      
+      const response = await axios.post(
+        `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/chat/accept`,
+        payload,
+        { withCredentials: true }
+      );
+      
+      if (response.data?.success) {
+        const { remainingCredits, latestCode, filesChanged } = response.data.data;
+        
+        await handleChatUpdateSuccess({ remainingCredits, latestCode, filesChanged });
+        
+        setChatRefreshTrigger(prev => prev + 1);
+        setPendingDiff(null);
+      }
+    } catch (err) {
+      console.error("Failed to accept diff changes:", err);
+    } finally {
+      setAcceptLoading(false);
+    }
+  };
+
+  const handleRejectDiff = () => {
+    setPendingDiff(null);
+  };
+
+  const handleDownloadZip = async () => {
+    setDownloadLoading(true);
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/export`,
+        {
+          responseType: "blob",
+          withCredentials: true,
+        }
+      );
+      
+      const blob = new Blob([response.data], { type: "application/zip" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      
+      const contentDisposition = response.headers["content-disposition"];
+      let filename = `${website?.title?.replace(/[^a-zA-Z0-9-_]/g, "_") || "project"}_export.zip`;
+      if (contentDisposition) {
+        const matches = /filename="([^"]+)"/.exec(contentDisposition);
+        if (matches && matches[1]) {
+          filename = matches[1];
+        }
+      }
+      
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("ZIP download failed:", err.response?.data || err.message);
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
 
   // Multi-file Workspace state
   const [files, setFiles] = useState([]);
@@ -299,9 +384,11 @@ const WebsiteEditor = () => {
   };
 
   const handleChatUpdateSuccess = async ({ remainingCredits, latestCode, filesChanged }) => {
-    dispatch(
-      setUserData({ ...userData, credits: remainingCredits })
-    );
+    if (remainingCredits !== null && remainingCredits !== undefined) {
+      dispatch(
+        setUserData({ ...userData, credits: remainingCredits })
+      );
+    }
     setCode(latestCode);
 
     // Re-sync all files
@@ -419,6 +506,8 @@ const WebsiteEditor = () => {
               onFileClick={handleChatFileClick}
               updateLoading={updateLoading}
               setUpdateLoading={setUpdateLoading}
+              onProposedDiff={(diffData) => setPendingDiff(diffData)}
+              chatRefreshTrigger={chatRefreshTrigger}
             />
           </motion.aside>
         )}
@@ -466,7 +555,24 @@ const WebsiteEditor = () => {
         <main className="flex-1 flex flex-col min-w-0 bg-black relative">
           <div className="h-12 px-4 flex justify-between items-center border-b border-white/10 bg-black/80 shrink-0">
             <p className="text-xs text-zinc-400">Live Preview</p>
+            <PreviewToolbar current={previewMode} onChange={setPreviewMode} />
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleDownloadZip}
+                disabled={downloadLoading}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white cursor-pointer disabled:opacity-50"
+                title="Download Project ZIP"
+              >
+                {downloadLoading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download size={14} /> Download ZIP
+                  </>
+                )}
+              </button>
               {!website.deployed && (
                 <button
                   onClick={handleDeploy}
@@ -499,12 +605,20 @@ const WebsiteEditor = () => {
             </div>
           </div>
 
-          <iframe
-            ref={iframeRef}
-            className="flex-1 w-full bg-white relative z-0 border-none"
-            sandbox="allow-scripts allow-forms allow-same-origin"
-            title={website.title}
-          />
+          <div className="flex-1 bg-zinc-950/40 overflow-auto flex justify-center items-center p-6 relative">
+            <iframe
+              ref={iframeRef}
+              className={`bg-white relative z-0 border-none transition-all duration-300 ${
+                previewMode === "mobile"
+                  ? "w-[375px] h-[667px] max-h-full rounded-3xl ring-12 ring-zinc-900 border border-zinc-800 shadow-2xl"
+                  : previewMode === "tablet"
+                  ? "w-[768px] h-[1024px] max-h-full rounded-3xl ring-12 ring-zinc-900 border border-zinc-800 shadow-2xl"
+                  : "w-full h-full"
+              }`}
+              sandbox="allow-scripts allow-forms allow-same-origin"
+              title={website.title}
+            />
+          </div>
         </main>
       </div>
 
@@ -530,6 +644,18 @@ const WebsiteEditor = () => {
               <X size={18} />
             </button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Proposed Diff Preview Modal */}
+      <AnimatePresence>
+        {pendingDiff && (
+          <DiffPreviewModal
+            diff={pendingDiff}
+            onAccept={handleAcceptDiff}
+            onReject={handleRejectDiff}
+            loading={acceptLoading}
+          />
         )}
       </AnimatePresence>
     </div>
