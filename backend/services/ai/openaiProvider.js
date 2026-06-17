@@ -8,7 +8,7 @@ export const openaiProvider = {
     return callOpenRouter({
       prompt,
       model,
-      providerName: "OpenAI",
+      providerName: "OpenAI (via OpenRouter)",
     });
   },
 };

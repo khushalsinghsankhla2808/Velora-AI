@@ -1,11 +1,5 @@
 // PATH: backend/services/ai/openRouterClient.js
 
-if (!process.env.OPENROUTER_API_KEY) {
-  throw new Error(
-    "[openRouterClient] OPENROUTER_API_KEY is not set in environment variables."
-  );
-}
-
 const DEFAULT_TIMEOUT_MS = 90000;
 const MAX_ATTEMPTS = 2;
 
@@ -25,6 +19,12 @@ export const callOpenRouter = async ({
   providerName,
   systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
 }) => {
+  if (!process.env.OPENROUTER_API_KEY) {
+    const err = new Error("[openRouterClient] OPENROUTER_API_KEY is not set in environment variables.");
+    err.code = "AI_UNAVAILABLE";
+    throw err;
+  }
+
   let lastError = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {

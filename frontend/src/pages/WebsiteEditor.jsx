@@ -1,7 +1,7 @@
 // PATH: frontend/src/pages/WebsiteEditor.jsx
 import React, { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
-import { Code2, Download, Loader2, MessageSquare, Monitor, Rocket, Send, X, Github, History, ShieldAlert, Palette, Users, Grid, Play, Bug, Share2, FileCode, Check, AlertCircle } from "lucide-react";
+import { Code2, Download, Loader2, MessageSquare, Monitor, Rocket, Send, X, Github, History, ShieldAlert, Palette, Users, Grid, Play, Bug, Share2, FileCode, Check, AlertCircle, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
@@ -63,7 +63,8 @@ const bundleHTMLFrontend = (filesList, entryPath = "index.html") => {
   filesList.forEach(file => {
     if (file.path && file.path.endsWith(".css")) {
       const fileName = file.path;
-      const linkRegex = new RegExp(`<link[^>]*href=["']\\.?/?${fileName.replace(".", "\\.")}["'][^>]*>`, "g");
+      const safeFileName = fileName.replace(/\./g, "\\.");
+      const linkRegex = new RegExp(`<link[^>]*href=["']\\.?/?${safeFileName}["'][^>]*>`, "g");
       html = html.replace(linkRegex, `<style>\n${file.content}\n</style>`);
     }
   });
@@ -72,7 +73,8 @@ const bundleHTMLFrontend = (filesList, entryPath = "index.html") => {
   filesList.forEach(file => {
     if (file.path && (file.path.endsWith(".js") || file.path.endsWith(".ts"))) {
       const fileName = file.path;
-      const scriptRegex = new RegExp(`<script[^>]*src=["']\\.?/?${fileName.replace(".", "\\.")}["'][^>]*>\\s*</script>`, "g");
+      const safeFileName = fileName.replace(/\./g, "\\.");
+      const scriptRegex = new RegExp(`<script[^>]*src=["']\\.?/?${safeFileName}["'][^>]*>\\s*</script>`, "g");
       html = html.replace(scriptRegex, `<script>\n${file.content}\n</script>`);
     }
   });
@@ -143,6 +145,7 @@ console.error = function(...args) {
 
 const WebsiteEditor = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { userData } = useSelector((state) => state.user);
   const iframeRef = useRef(null);
@@ -205,7 +208,7 @@ const WebsiteEditor = () => {
     setDownloadLoading(true);
     try {
       const response = await axios.get(
-        `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/export`,
+        `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/export?exportType=${zipExportType}`,
         {
           responseType: "blob",
           withCredentials: true,
@@ -346,7 +349,6 @@ const WebsiteEditor = () => {
   const [explorerLoading, setExplorerLoading] = useState(false);
 
   // UI Panel Layout states
-  const navigate = useNavigate();
   const [showCode, setShowCode] = useState(true);
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [activeSidebarTab, setActiveSidebarTab] = useState(null);

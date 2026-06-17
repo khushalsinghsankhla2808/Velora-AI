@@ -12,9 +12,9 @@ import { FileModel } from "../models/fileModel.js";
 import { Chat } from "../models/chatModel.js";
 import { Version } from "../models/versionModel.js";
 import { MarketplaceComponent } from "../models/marketplaceComponentModel.js";
-// archiver is used to programmatically bundle and stream project files as a ZIP archive
 import { ZipArchive } from "archiver";
 import { Octokit } from "@octokit/rest";
+
 
 const GENERATE_COST = 10;
 const UPDATE_COST = 5;
@@ -200,7 +200,13 @@ OUTPUT FORMAT — **RAW JSON ONLY**:
 export const getWebsiteById = async (req, res) => {
     try {
         const id = req.params.id;
-        const website = await Website.findOne({ _id: id, user: req.user._id }).populate("files").lean();
+        const website = await Website.findOne({
+            _id: id,
+            $or: [
+                { user: req.user._id },
+                { "members.user": req.user._id }
+            ]
+        }).populate("files").lean();
         if (!website) return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
         ensureWebsiteFiles(website);
         return sendSuccess(res, { website });
@@ -226,8 +232,19 @@ export const changeWebsite = async (req, res) => {
 
         const langInstructions = CODE_PREFERENCE_INSTRUCTIONS[codePreference] || "";
 
-        const website = await Website.findOne({ _id: id, user: req.user._id }).populate("files");
+        const website = await Website.findOne({
+            _id: id,
+            $or: [
+                { user: req.user._id },
+                { "members.user": req.user._id }
+            ]
+        }).populate("files");
         if (!website) return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+
+        const role = getProjectRole(website, req.user._id);
+        if (!role || role === "viewer") {
+            return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
+        }
 
         const user = await User.findOneAndUpdate(
             { _id: req.user._id, credits: { $gte: UPDATE_COST } },
@@ -335,7 +352,12 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 export const getAllWebsite = async (req, res) => {
     try {
         const { page, limit, skip } = parsePagination(req.query, { limit: 12, maxLimit: 30 });
-        const filter = { user: req.user._id };
+        const filter = {
+            $or: [
+                { user: req.user._id },
+                { "members.user": req.user._id }
+            ]
+        };
         const [websites, total] = await Promise.all([
             Website.find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean(),
             Website.countDocuments(filter),
@@ -354,8 +376,19 @@ export const getAllWebsite = async (req, res) => {
 export const deployWebsite = async (req, res) => {
     try {
         const id = req.params.id;
-        const website = await Website.findOne({ _id: id, user: req.user._id });
+        const website = await Website.findOne({
+            _id: id,
+            $or: [
+                { user: req.user._id },
+                { "members.user": req.user._id }
+            ]
+        });
         if (!website) return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+
+        const role = getProjectRole(website, req.user._id);
+        if (!role || role === "viewer") {
+            return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
+        }
 
         if (!website.slug) {
             website.slug = website.title.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 60) + website._id.toString().slice(-5);
@@ -404,10 +437,16 @@ const migrateLegacyProjectToDB = async (website) => {
 
 export const listProjectFiles = async (req, res) => {
   try {
-    const { projectId } = req.body;
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const { projectId } = req.params;
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+      return sendError(res, "ACCESS_DENIED", "You do not have access to this project", 403);
     }
 
     const files = await FileModel.find({ projectId }).lean();
@@ -435,10 +474,16 @@ export const listProjectFiles = async (req, res) => {
 
 export const getSingleFile = async (req, res) => {
   try {
-    const { projectId, fileId } = req.body;
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const { projectId, fileId } = req.params;
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+      return sendError(res, "ACCESS_DENIED", "You do not have access to this project", 403);
     }
 
     if (fileId === "legacy") {
@@ -469,10 +514,21 @@ export const getSingleFile = async (req, res) => {
 
 export const createProjectFile = async (req, res) => {
   try {
-    const { projectId, path, content, language } = req.body;
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const { projectId } = req.params;
+    const { path, content, language } = req.body;
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     await migrateLegacyProjectToDB(website);
@@ -504,10 +560,21 @@ export const createProjectFile = async (req, res) => {
 
 export const updateProjectFile = async (req, res) => {
   try {
-    const { projectId, fileId, content } = req.body;
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const { projectId, fileId } = req.params;
+    const { content } = req.body;
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     await migrateLegacyProjectToDB(website);
@@ -539,10 +606,21 @@ export const updateProjectFile = async (req, res) => {
 
 export const renameProjectFile = async (req, res) => {
   try {
-    const { projectId, fileId, newPath } = req.body;
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const { projectId, fileId } = req.params;
+    const { newPath } = req.body;
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     await migrateLegacyProjectToDB(website);
@@ -581,10 +659,20 @@ export const renameProjectFile = async (req, res) => {
 
 export const deleteProjectFile = async (req, res) => {
   try {
-    const { projectId, fileId } = req.body;
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const { projectId, fileId } = req.params;
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     await migrateLegacyProjectToDB(website);
@@ -616,10 +704,21 @@ export const deleteProjectFile = async (req, res) => {
 
 export const createProjectFolder = async (req, res) => {
   try {
-    const { projectId, path } = req.body;
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const { projectId } = req.params;
+    const { path } = req.body;
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     await migrateLegacyProjectToDB(website);
@@ -653,14 +752,22 @@ export const targetedChatEdit = async (req, res) => {
   const CHAT_COST = 2;
 
   try {
-    const { projectId, instruction } = req.body;
+    const { projectId } = req.params;
+    const { instruction } = req.body;
 
-    const website = await Website.findById(projectId);
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }
-    if (website.user.toString() !== req.user._id.toString()) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     const user = await User.findOneAndUpdate(
@@ -785,14 +892,22 @@ If you do not need to modify any files, return an empty "files" array.
 // ─── Get Chat History ────────────────────────────────────────────────────────
 export const getChatHistory = async (req, res) => {
   try {
-    const { projectId, before } = req.body;
+    const { projectId } = req.params;
+    const before = req.query.before;
 
-    const website = await Website.findById(projectId);
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }
-    if (website.user.toString() !== req.user._id.toString()) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    const role = getProjectRole(website, req.user._id);
+    if (!role) {
+      return sendError(res, "ACCESS_DENIED", "You do not have access to this project", 403);
     }
 
     const filter = { projectId };
@@ -821,15 +936,22 @@ export const getChatHistory = async (req, res) => {
 // ─── Export Project as ZIP ──────────────────────────────────────────────────
 export const exportWebsite = async (req, res) => {
   try {
-    const { websiteId } = req.body;
+    const websiteId = req.params.id;
     const exportType = req.query.exportType || "html";
 
-    const website = await Website.findById(websiteId);
+    const website = await Website.findOne({
+      _id: websiteId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }
-    if (website.user.toString() !== req.user._id.toString()) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    const role = getProjectRole(website, req.user._id);
+    if (!role) {
+      return sendError(res, "ACCESS_DENIED", "You do not have access to this project", 403);
     }
 
     // Ensure legacy project has files in DB
@@ -888,12 +1010,19 @@ export const exportToGithub = async (req, res) => {
     const websiteId = req.params.id;
     const { githubToken, repoName, isPrivate, exportType = "html" } = req.body;
 
-    const website = await Website.findById(websiteId);
+    const website = await Website.findOne({
+      _id: websiteId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }
-    if (website.user.toString() !== req.user._id.toString()) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     // Ensure legacy project has files in DB
@@ -1005,12 +1134,19 @@ export const acceptChatEdit = async (req, res) => {
   try {
     const { projectId, instruction, message, tokensUsed, files } = req.body;
 
-    const website = await Website.findById(projectId);
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }
-    if (website.user.toString() !== req.user._id.toString()) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     // Deduct credits for the accepted change
@@ -1102,14 +1238,21 @@ export const acceptChatEdit = async (req, res) => {
 // ─── Undo AI Chat Edit ──────────────────────────────────────────────────────
 export const undoChatEdit = async (req, res) => {
   try {
-    const { projectId } = req.body;
+    const { projectId } = req.params;
 
-    const website = await Website.findById(projectId);
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }
-    if (website.user.toString() !== req.user._id.toString()) {
-      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     // Find the latest assistant message
@@ -1230,9 +1373,19 @@ export const saveVersion = async (req, res) => {
     const projectId = req.params.projectId;
     const { label, description } = req.body;
 
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     await migrateLegacyProjectToDB(website);
@@ -1271,9 +1424,19 @@ export const listVersions = async (req, res) => {
   try {
     const projectId = req.params.projectId;
 
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role) {
+      return sendError(res, "ACCESS_DENIED", "You do not have access to this project", 403);
     }
 
     const versions = await Version.find({ projectId })
@@ -1292,9 +1455,19 @@ export const restoreVersion = async (req, res) => {
   try {
     const { projectId, versionId } = req.params;
 
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     const version = await Version.findOne({ _id: versionId, projectId });
@@ -1339,9 +1512,15 @@ export const forkWebsite = async (req, res) => {
   try {
     const projectId = req.params.projectId;
 
-    const originalWebsite = await Website.findById(projectId).populate("files");
+    const originalWebsite = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    }).populate("files");
     if (!originalWebsite) {
-      return sendError(res, "WEBSITE_NOT_FOUND", "Original project not found", 404);
+      return sendError(res, "WEBSITE_NOT_FOUND", "Original project not found or access denied", 404);
     }
 
     // Create cloned website document
@@ -1398,9 +1577,19 @@ export const debugWebsite = async (req, res) => {
     const projectId = req.params.projectId;
     const { errorMessage, errorStack } = req.body;
 
-    const website = await Website.findById(projectId);
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     await migrateLegacyProjectToDB(website);
@@ -1522,9 +1711,19 @@ export const importMarketplaceComponent = async (req, res) => {
   try {
     const { projectId, componentId } = req.params;
 
-    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    const website = await Website.findOne({
+      _id: projectId,
+      $or: [
+        { user: req.user._id },
+        { "members.user": req.user._id }
+      ]
+    });
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role || role === "viewer") {
+      return sendError(res, "ACCESS_DENIED", "You do not have write access to this project", 403);
     }
 
     const component = await MarketplaceComponent.findById(componentId);

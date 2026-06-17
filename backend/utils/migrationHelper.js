@@ -41,7 +41,8 @@ export const bundleHTML = (files, entryPath = "index.html") => {
     if (file.path && file.path.endsWith(".css")) {
       const fileName = file.path;
       // We look for <link ... href="fileName" ...> or <link ... href="./fileName" ...>
-      const linkRegex = new RegExp(`<link[^>]*href=["']\\.?/?${fileName.replace(".", "\\.")}["'][^>]*>`, "g");
+      const safeFileName = fileName.replace(/\./g, "\\.");
+      const linkRegex = new RegExp(`<link[^>]*href=["']\\.?/?${safeFileName}["'][^>]*>`, "g");
       html = html.replace(linkRegex, `<style>\n${file.content}\n</style>`);
     }
   });
@@ -50,7 +51,8 @@ export const bundleHTML = (files, entryPath = "index.html") => {
   files.forEach(file => {
     if (file.path && (file.path.endsWith(".js") || file.path.endsWith(".ts"))) {
       const fileName = file.path;
-      const scriptRegex = new RegExp(`<script[^>]*src=["']\\.?/?${fileName.replace(".", "\\.")}["'][^>]*>\\s*</script>`, "g");
+      const safeFileName = fileName.replace(/\./g, "\\.");
+      const scriptRegex = new RegExp(`<script[^>]*src=["']\\.?/?${safeFileName}["'][^>]*>\\s*</script>`, "g");
       html = html.replace(scriptRegex, `<script>\n${file.content}\n</script>`);
     }
   });

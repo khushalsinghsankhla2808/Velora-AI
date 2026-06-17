@@ -25,10 +25,12 @@ export default function MarketplacePanel({ projectId, activeFile, onUpdateSucces
     setLoading(true);
     setError("");
     try {
-      const catQuery = category && category !== "All" ? `&category=${category}` : "";
-      const searchQuery = search ? `&search=${search}` : "";
+      const params = new URLSearchParams();
+      if (category && category !== "All") params.set("category", category);
+      if (search) params.set("search", search);
+      const queryString = params.toString() ? `?${params.toString()}` : "";
       const res = await axios.get(
-        `${import.meta.env.VITE_SERVER_URL}/api/website/marketplace?${catQuery}${searchQuery}`,
+        `${import.meta.env.VITE_SERVER_URL}/api/website/marketplace${queryString}`,
         { withCredentials: true }
       );
       if (res.data?.success) {

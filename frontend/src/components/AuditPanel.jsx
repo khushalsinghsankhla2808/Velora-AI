@@ -147,27 +147,29 @@ export default function AuditPanel({ projectId }) {
             )}
 
             {/* Audit details details list */}
-            <div className="space-y-3">
-              <p className="font-semibold text-[10px] text-zinc-400 uppercase tracking-wider">Audit Details</p>
+            {report.details && Object.keys(report.details).length > 0 && (
               <div className="space-y-3">
-                {Object.keys(report.details).map((key) => (
-                  <div key={key} className="space-y-1.5">
-                    <h5 className="font-bold text-[10px] text-zinc-400 uppercase pl-1">{key}</h5>
-                    <ul className="space-y-1.5">
-                      {report.details[key].map((item, idx) => (
-                        <li
-                          key={idx}
-                          className="flex items-start gap-2 p-2.5 rounded-xl bg-white/5 border border-white/5 text-[10px] leading-relaxed text-zinc-300"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0 mt-1.5" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                <p className="font-semibold text-[10px] text-zinc-400 uppercase tracking-wider">Audit Details</p>
+                <div className="space-y-3">
+                  {Object.keys(report.details).map((key) => (
+                    <div key={key} className="space-y-1.5">
+                      <h5 className="font-bold text-[10px] text-zinc-400 uppercase pl-1">{key}</h5>
+                      <ul className="space-y-1.5">
+                        {(report.details[key] || []).map((item, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-start gap-2 p-2.5 rounded-xl bg-white/5 border border-white/5 text-[10px] leading-relaxed text-zinc-300"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0 mt-1.5" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>

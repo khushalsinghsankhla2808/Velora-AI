@@ -13,10 +13,8 @@ export const GenerateSchema = z.object({
  * Allows passthrough of other fields.
  */
 export const UpdateSchema = z.object({
+  websiteId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid website ID format" }),
   prompt: z.string().min(5).max(2000),
-  websiteId: z.string().regex(/^[a-f\d]{24}$/i, {
-    message: "Invalid website ID format",
-  }),
 }).passthrough();
 
 /**
@@ -24,9 +22,7 @@ export const UpdateSchema = z.object({
  * Allows passthrough of other fields.
  */
 export const DeploySchema = z.object({
-  websiteId: z.string().regex(/^[a-f\d]{24}$/i, {
-    message: "Invalid website ID format",
-  }),
+  websiteId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid website ID format" }),
 }).passthrough();
 
 /**
@@ -41,7 +37,10 @@ export const ProjectIdSchema = z.object({
  */
 export const FileIdSchema = z.object({
   projectId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid project ID format" }),
-  fileId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid file ID format" }),
+  fileId: z.union([
+    z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid file ID format" }),
+    z.literal("legacy"),
+  ]),
 }).passthrough();
 
 /**
@@ -62,7 +61,10 @@ export const CreateFileSchema = z.object({
  */
 export const UpdateFileSchema = z.object({
   projectId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid project ID format" }),
-  fileId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid file ID format" }),
+  fileId: z.union([
+    z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid file ID format" }),
+    z.literal("legacy"),
+  ]),
   content: z.string(),
 }).passthrough();
 
@@ -71,7 +73,10 @@ export const UpdateFileSchema = z.object({
  */
 export const RenameFileSchema = z.object({
   projectId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid project ID format" }),
-  fileId: z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid file ID format" }),
+  fileId: z.union([
+    z.string().regex(/^[a-f\d]{24}$/i, { message: "Invalid file ID format" }),
+    z.literal("legacy"),
+  ]),
   newPath: z.string().min(1).max(255).refine(
     p => !p.includes('..') && !p.startsWith('/') && !p.startsWith('\\'),
     { message: "Invalid path format or path traversal attempt" }
