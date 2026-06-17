@@ -77,15 +77,20 @@ Unlike traditional drag-and-drop builders, Velora AI explores **autonomous websi
 
 | Feature | Description |
 |---|---|
-| 🤖 AI Website Generation | Describe your website in plain English and get a complete HTML/CSS/JS website |
-| ⚡ Instant Live Preview | See your generated website rendered live in an iframe instantly |
-| 🔄 AI Regeneration | Chat-based iterative updates — refine your website with follow-up prompts |
-| 📱 Responsive Output | Every generated website is fully responsive across mobile, tablet, and desktop |
+| 🤖 AI Website Generation | Describe your website in plain English and get a complete multi-file project workspace |
+| 🗂️ Multi-File Workspace | Structured output supporting multiple files (`index.html`, `style.css`, `script.js`, etc.) stored dynamically in the database |
+| 📂 Interactive File Explorer | Built-in virtual directory tree supporting file creation, renaming, and deletion |
+| ⚡ Live Preview Engine | Instantly render the generated website inside a sandboxed iframe with automatic frontend bundling |
+| 🔄 AI Chat Diff & Commit | Review proposed AI modifications side-by-side using Monaco's `DiffEditor` before committing or rejecting changes |
+| ↩️ Transactional Undo | Rollback the latest AI edit instantly, reverting modified database files and clearing history |
+| 📱 Responsive Preview Bezels | Switch dimensions to Mobile (375px bezel), Tablet (768px bezel), or Desktop preview layouts on-the-fly |
+| 📦 Project ZIP Export | Package the entire multi-file project workspace into a zip archive with maximum compression for download |
+| 🎨 Optimized Workspace Layout | The Live Preview renders on the left side of the Monaco editor for an improved user coding workflow |
 | 🚀 One-Click Deployment | Deploy your website to a public URL with a single click |
-| 💳 Credit-Based System | Fair credit system — 10 credits to generate, 5 credits to update |
+| 💳 Credit-Based System | Fair credit system with transaction safety — 10 credits to generate, 5 credits to update |
 | 💰 Razorpay Payments | Integrated INR payment gateway with UPI, Cards, and Netbanking support |
 | 🔐 Google Authentication | Firebase OAuth + JWT HttpOnly cookie for secure, seamless login |
-| 🖥️ Monaco Code Editor | View and edit generated code in a VS Code-style editor |
+| 🖥️ Monaco Code Editor | View, edit, and save files directly using a full-fledged VS Code-style editor |
 | 📦 Dashboard Management | Manage all your generated websites from a unified dashboard |
 | 🎨 Modern Dark UI | Sleek dark design with smooth Framer Motion animations throughout |
 
@@ -135,8 +140,8 @@ User Prompt
              │
              ▼
 ┌─────────────────────────┐
-│    OpenRouter API       │  ← Routes to DeepSeek model
-│    (DeepSeek Model)     │
+│    OpenRouter API       │  ← Routes to DeepSeek/Gemini/Qwen models
+│   (Multi-Model Selector)│
 └────────────┬────────────┘
              │
              ▼
@@ -147,18 +152,18 @@ User Prompt
              │
              ▼
 ┌─────────────────────────┐
-│  HTML/CSS/JS Generation │  ← Single-file SPA with inline styles
-│  (Single File SPA)      │     and JavaScript navigation
+│  HTML/CSS/JS Generation │  ← Multi-file workspace layout
+│  (Multi-File Workspace) │     with modular files
 └────────────┬────────────┘
              │
              ▼
 ┌─────────────────────────┐
-│    MongoDB Storage      │  ← Website + conversation history saved
+│    MongoDB Storage      │  ← Website, virtual files, and history saved
 └────────────┬────────────┘
              │
              ▼
 ┌─────────────────────────┐
-│   Live Preview Engine   │  ← Blob URL rendered in sandboxed iframe
+│   Live Preview Engine   │  ← Inlines CSS/JS dynamically for preview
 └────────────┬────────────┘
              │
              ▼
@@ -176,21 +181,25 @@ Velora-AI/
 │
 ├── backend/
 │   ├── config/
-│   │   ├── openRouter.js       # AI API integration (DeepSeek via OpenRouter)
+│   │   ├── openRouter.js       # AI API integration
 │   │   ├── razorpay.js         # Razorpay payment gateway
 │   │   └── plan.js             # Credit plan definitions
 │   │
 │   ├── controllers/
 │   │   ├── authController.js   # Google OAuth + JWT logic
-│   │   ├── websiteController.js# AI generation, update, deploy logic
+│   │   ├── websiteController.js# Generation, multi-file CRUD, chat and ZIP export
 │   │   └── paymentController.js# Razorpay order + signature verification
 │   │
 │   ├── middlewares/
-│   │   └── isAuthenticated.js  # JWT cookie verification
+│   │   ├── isAuthenticated.js  # JWT cookie verification
+│   │   ├── security.js         # Rate limiters for critical endpoints
+│   │   └── validate.js         # Zod request validators
 │   │
 │   ├── models/
-│   │   ├── userMODEL.js        # User schema (credits, plan)
-│   │   ├── websiteModel.js     # Website + conversation schema
+│   │   ├── userModel.js        # User schema (credits, plan)
+│   │   ├── websiteModel.js     # Website metadata and deployment slug
+│   │   ├── fileModel.js        # File contents and previousContents for Undo
+│   │   ├── chatModel.js        # Conversation and modified paths history
 │   │   └── paymentModel.js     # Payment tracking schema
 │   │
 │   ├── routes/
@@ -198,8 +207,13 @@ Velora-AI/
 │   │   ├── websiteRoute.js     # /api/website
 │   │   └── paymentRoute.js     # /api/payment
 │   │
+│   ├── validators/
+│   │   └── websiteValidator.js # Zod validation schemas
+│   │
 │   ├── utils/
-│   │   └── extractJson.js      # Safe AI response parser
+│   │   ├── apiResponse.js      # Standard API envelopes
+│   │   ├── extractJson.js      # Safe JSON parser
+│   │   └── migrationHelper.js  # Multi-file DB saves and iframe bundle inlining
 │   │
 │   ├── database/
 │   │   └── db.js               # MongoDB connection
@@ -209,23 +223,28 @@ Velora-AI/
 ├── frontend/
 │   └── src/
 │       ├── components/
-│       │   ├── Navbar.jsx       # Credits badge, avatar, logout
-│       │   └── LoginModal.jsx   # Google auth modal
+│       │   ├── Navbar.jsx          # Credits badge, avatar, logout
+│       │   ├── LoginModal.jsx      # Google auth modal
+│       │   ├── FileExplorer.jsx    # Virtual file tree navigator
+│       │   ├── EditorTabs.jsx      # Monaco code tab navigation
+│       │   ├── PreviewToolbar.jsx  # Responsive frame controls
+│       │   ├── ChatPanel.jsx       # Chat window with undo buttons
+│       │   └── DiffPreviewModal.jsx# Monaco side-by-side DiffEditor
 │       │
 │       ├── pages/
-│       │   ├── Home.jsx         # Landing page
-│       │   ├── Generate.jsx     # AI generation with progress bar
-│       │   ├── Dashboard.jsx    # Website management
-│       │   ├── WebsiteEditor.jsx# Monaco editor + live preview + chat
-│       │   ├── Pricing.jsx      # Plans + Razorpay integration
-│       │   └── LiveSite.jsx     # Public deployed site viewer
+│       │   ├── Home.jsx            # Landing page
+│       │   ├── Generate.jsx        # AI generation with progress bar
+│       │   ├── Dashboard.jsx       # Website management
+│       │   ├── WebsiteEditor.jsx   # Tabbed editor + left-side preview + chat
+│       │   ├── Pricing.jsx         # Plans + Razorpay integration
+│       │   └── LiveSite.jsx        # Public deployed site viewer
 │       │
 │       ├── redux/
-│       │   ├── store.js         # Redux + redux-persist setup
-│       │   └── userSlice.js     # User state management
+│       │   ├── store.js            # Redux + redux-persist setup
+│       │   └── userSlice.js        # User state management
 │       │
-│       ├── firebase.js          # Firebase config
-│       └── App.jsx              # Routes + ProtectedRoute wrapper
+│       ├── firebase.js             # Firebase config
+│       └── App.jsx                 # Routes + ProtectedRoute wrapper
 │
 └── README.md
 ```
