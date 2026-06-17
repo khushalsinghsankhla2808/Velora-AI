@@ -3,35 +3,21 @@
 <img src="https://img.shields.io/badge/Velora-AI-7c3aed?style=for-the-badge&logo=sparkles&logoColor=white" alt="Velora AI" />
 
 # 🚀 Velora AI
+
 ### AI-Powered Autonomous Website Generation Platform
 
-<p align="center">
-  <strong>Convert your ideas into fully responsive websites using the power of AI — no coding required.</strong>
-</p>
+**Convert your ideas into fully responsive websites using the power of AI — no coding required.**
 
-<p align="center">
-  <a href="https://velora-builder.vercel.app/" target="_blank">
-    <img src="https://img.shields.io/badge/🌐 Frontend-velora--builder.vercel.app-7c3aed?style=for-the-badge" alt="Live Demo" />
-  </a>
-  &nbsp;
-  <a href="https://velora-ai-ythc.onrender.com/" target="_blank">
-    <img src="https://img.shields.io/badge/🔧 Backend API-velora--ai--ythc.onrender.com-22c55e?style=for-the-badge" alt="Backend API" />
-  </a>
-  &nbsp;
-  <a href="https://github.com/khushalsinghsankhla2808/Velora-AI" target="_blank">
-    <img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github" alt="GitHub" />
-  </a>
-  &nbsp;
-  <img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" alt="License" />
-</p>
+[![Live Demo](https://img.shields.io/badge/🌐_Frontend-velora--builder.vercel.app-7c3aed?style=for-the-badge)](https://velora-builder.vercel.app/)
+[![Backend API](https://img.shields.io/badge/🔧_Backend_API-velora--ai--ythc.onrender.com-22c55e?style=for-the-badge)](https://velora-ai-ythc.onrender.com/)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github)](https://github.com/khushalsinghsankhla2808/Velora-AI)
+[![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Status-Live & Active-22c55e?style=flat-square" />
-  <img src="https://img.shields.io/badge/Frontend-React 19-61dafb?style=flat-square&logo=react" />
-  <img src="https://img.shields.io/badge/Backend-Node.js-339933?style=flat-square&logo=node.js" />
-  <img src="https://img.shields.io/badge/Database-MongoDB-47a248?style=flat-square&logo=mongodb" />
-  <img src="https://img.shields.io/badge/AI-DeepSeek via OpenRouter-7c3aed?style=flat-square" />
-</p>
+![Status](https://img.shields.io/badge/Status-Live%20%26%20Active-22c55e?style=flat-square)
+![Frontend](https://img.shields.io/badge/Frontend-React%2019-61DAFB?style=flat-square&logo=react)
+![Backend](https://img.shields.io/badge/Backend-Node.js-339933?style=flat-square&logo=node.js)
+![Database](https://img.shields.io/badge/Database-MongoDB-47A248?style=flat-square&logo=mongodb)
+![AI](https://img.shields.io/badge/AI-DeepSeek%20%2B%20Gemini%20Fallback-7c3aed?style=flat-square)
 
 </div>
 
@@ -69,7 +55,7 @@
 
 **Velora AI** is a production-grade full-stack AI-powered website builder built on the MERN stack. Users describe what they want in plain English, and Velora AI's prompt engineering pipeline generates a fully responsive, deployment-ready website in minutes.
 
-Unlike traditional drag-and-drop builders, Velora AI explores **autonomous website synthesis** — combining advanced prompt orchestration, structured AI output enforcement, and live preview rendering to deliver a seamless creation experience.
+Unlike traditional drag-and-drop builders, Velora AI explores **autonomous website synthesis** — combining advanced prompt orchestration, structured AI output enforcement, automatic model fallback, and live preview rendering to deliver a seamless creation experience.
 
 ---
 
@@ -86,9 +72,10 @@ Unlike traditional drag-and-drop builders, Velora AI explores **autonomous websi
 | 📱 Responsive Preview Bezels | Switch dimensions to Mobile (375px bezel), Tablet (768px bezel), or Desktop preview layouts on-the-fly |
 | 📦 Project ZIP Export | Package the entire multi-file project workspace into a zip archive with maximum compression for download |
 | 🎨 Optimized Workspace Layout | The Live Preview renders on the left side of the Monaco editor for an improved user coding workflow |
-| 🚀 One-Click Deployment | Deploy your website to a public URL with a single click |
+| 🔁 Automatic Model Fallback | If the primary AI model fails or times out, requests automatically retry on a backup model — generation rarely fails outright |
+| 🚀 One-Click Deployment | Deploy your website to a public slug-based URL with a single click |
 | 💳 Credit-Based System | Fair credit system with transaction safety — 10 credits to generate, 5 credits to update |
-| 💰 Razorpay Payments | Integrated INR payment gateway with UPI, Cards, and Netbanking support |
+| 💰 Razorpay Payments | Integrated INR payment gateway with UPI, Cards, and Netbanking support, verified server-side via HMAC |
 | 🔐 Google Authentication | Firebase OAuth + JWT HttpOnly cookie for secure, seamless login |
 | 🖥️ Monaco Code Editor | View, edit, and save files directly using a full-fledged VS Code-style editor |
 | 📦 Dashboard Management | Manage all your generated websites from a unified dashboard |
@@ -114,7 +101,8 @@ Unlike traditional drag-and-drop builders, Velora AI explores **autonomous websi
 
 ### AI Layer
 ![OpenRouter](https://img.shields.io/badge/OpenRouter_API-7c3aed?style=flat-square)
-![DeepSeek](https://img.shields.io/badge/DeepSeek_Model-0ea5e9?style=flat-square)
+![DeepSeek](https://img.shields.io/badge/DeepSeek-0ea5e9?style=flat-square)
+![Gemini](https://img.shields.io/badge/Gemini_2.5_Pro_(Fallback)-4285F4?style=flat-square&logo=google&logoColor=white)
 
 ### Auth & Payments
 ![Firebase](https://img.shields.io/badge/Firebase_OAuth-FFCA28?style=flat-square&logo=firebase&logoColor=black)
@@ -133,43 +121,53 @@ Unlike traditional drag-and-drop builders, Velora AI explores **autonomous websi
 User Prompt
       │
       ▼
-┌─────────────────────────┐
-│   Prompt Engineering    │  ← Master prompt with rules, format constraints
-│        Layer            │     and quality enforcement
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│    OpenRouter API       │  ← Routes to DeepSeek/Gemini/Qwen models
-│   (Multi-Model Selector)│
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│  JSON Validation &      │  ← Strips markdown, extracts JSON,
-│  Extraction Pipeline    │     auto-retries on parse failure
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│  HTML/CSS/JS Generation │  ← Multi-file workspace layout
-│  (Multi-File Workspace) │     with modular files
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│    MongoDB Storage      │  ← Website, virtual files, and history saved
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│   Live Preview Engine   │  ← Inlines CSS/JS dynamically for preview
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│   Deployment Pipeline   │  ← Slug-based public URL generation
-└─────────────────────────┘
+┌─────────────────────────────┐
+│   Prompt Engineering Layer   │  ← Master prompt with design system,
+│                               │     content, accessibility, and SEO
+│                               │     rules + strict JSON output schema
+└───────────────┬───────────────┘
+                │
+                ▼
+┌─────────────────────────────┐
+│   AI Client Service          │  ← backend/services/ai/openRouterClient.js
+│   (Primary: DeepSeek)         │     90s timeout, 2-attempt retry
+└───────────────┬───────────────┘
+                │
+        primary fails after retries
+                │
+                ▼
+┌─────────────────────────────┐
+│   Automatic Fallback         │  ← Switches to google/gemini-2.5-pro
+│   (Gemini 2.5 Pro)            │     transparently, same contract
+└───────────────┬───────────────┘
+                │
+                ▼
+┌─────────────────────────────┐
+│  JSON Validation &           │  ← Strips markdown, extracts JSON,
+│  Extraction Pipeline         │     auto-retries on parse failure
+│  (extractJson.js)             │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌─────────────────────────────┐
+│  HTML/CSS/JS Generation      │  ← Multi-file workspace layout
+│  (Multi-File Workspace)       │     with modular files
+└───────────────┬───────────────┘
+                │
+                ▼
+┌─────────────────────────────┐
+│   MongoDB Storage             │  ← Website, virtual files, and history saved
+└───────────────┬───────────────┘
+                │
+                ▼
+┌─────────────────────────────┐
+│   Live Preview Engine         │  ← Inlines CSS/JS dynamically for preview
+└───────────────┬───────────────┘
+                │
+                ▼
+┌─────────────────────────────┐
+│   Deployment Pipeline         │  ← Slug-based public URL generation
+└─────────────────────────────┘
 ```
 
 ---
@@ -181,44 +179,53 @@ Velora-AI/
 │
 ├── backend/
 │   ├── config/
-│   │   ├── openRouter.js       # AI API integration
-│   │   ├── razorpay.js         # Razorpay payment gateway
-│   │   └── plan.js             # Credit plan definitions
+│   │   ├── openRouter.js        # Re-exports the AI client (see services/ai)
+│   │   ├── razorpay.js          # Razorpay payment gateway config
+│   │   └── plan.js              # Credit plan definitions
+│   │
+│   ├── services/
+│   │   └── ai/
+│   │       └── openRouterClient.js   # DeepSeek primary + Gemini 2.5 Pro
+│   │                                  fallback, timeout, retry logic
 │   │
 │   ├── controllers/
-│   │   ├── authController.js   # Google OAuth + JWT logic
-│   │   ├── websiteController.js# Generation, multi-file CRUD, chat and ZIP export
-│   │   └── paymentController.js# Razorpay order + signature verification
+│   │   ├── authController.js    # Google OAuth + JWT logic
+│   │   ├── websiteController.js # Generation, multi-file CRUD, chat and ZIP export
+│   │   └── paymentController.js # Razorpay order + HMAC signature verification
 │   │
 │   ├── middlewares/
-│   │   ├── isAuthenticated.js  # JWT cookie verification
-│   │   ├── security.js         # Rate limiters for critical endpoints
-│   │   └── validate.js         # Zod request validators
-│   │
-│   ├── models/
-│   │   ├── userModel.js        # User schema (credits, plan)
-│   │   ├── websiteModel.js     # Website metadata and deployment slug
-│   │   ├── fileModel.js        # File contents and previousContents for Undo
-│   │   ├── chatModel.js        # Conversation and modified paths history
-│   │   └── paymentModel.js     # Payment tracking schema
-│   │
-│   ├── routes/
-│   │   ├── authRoutes.js       # /api/auth
-│   │   ├── websiteRoute.js     # /api/website
-│   │   └── paymentRoute.js     # /api/payment
+│   │   ├── isAuthenticated.js   # JWT cookie verification
+│   │   ├── validate.js          # Zod request validation middleware
+│   │   └── security.js          # Rate limiters for critical endpoints
 │   │
 │   ├── validators/
-│   │   └── websiteValidator.js # Zod validation schemas
+│   │   └── websiteValidator.js  # Zod schemas for generate/update/deploy
+│   │
+│   ├── models/
+│   │   ├── userModel.js         # User schema (credits, plan)
+│   │   ├── websiteModel.js      # Website metadata and deployment slug
+│   │   ├── fileModel.js         # File contents and previousContents for Undo
+│   │   ├── chatModel.js         # Conversation and modified paths history
+│   │   └── paymentModel.js      # Payment tracking schema
+│   │
+│   ├── routes/
+│   │   ├── authRoutes.js        # /api/auth
+│   │   ├── websiteRoute.js      # /api/website
+│   │   └── paymentRoute.js      # /api/payment
 │   │
 │   ├── utils/
-│   │   ├── apiResponse.js      # Standard API envelopes
-│   │   ├── extractJson.js      # Safe JSON parser
-│   │   └── migrationHelper.js  # Multi-file DB saves and iframe bundle inlining
+│   │   ├── apiResponse.js       # Standard API envelopes
+│   │   ├── extractJson.js       # Safe AI response parser with retry
+│   │   └── migrationHelper.js   # Multi-file DB saves and iframe bundle inlining
 │   │
 │   ├── database/
-│   │   └── db.js               # MongoDB connection
+│   │   └── db.js                # MongoDB connection
 │   │
-│   └── index.js                # Express server entry point
+│   ├── tests/
+│   │   ├── payment.test.js      # Razorpay flow integration tests
+│   │   └── aiClient.test.js     # AI client + fallback integration tests
+│   │
+│   └── index.js                 # Express server entry point
 │
 ├── frontend/
 │   └── src/
@@ -229,25 +236,29 @@ Velora-AI/
 │       │   ├── EditorTabs.jsx      # Monaco code tab navigation
 │       │   ├── PreviewToolbar.jsx  # Responsive frame controls
 │       │   ├── ChatPanel.jsx       # Chat window with undo buttons
-│       │   └── DiffPreviewModal.jsx# Monaco side-by-side DiffEditor
+│       │   ├── DiffPreviewModal.jsx# Monaco side-by-side DiffEditor
+│       │   └── ErrorBoundary.jsx  # Catches editor/generation crashes
 │       │
 │       ├── pages/
-│       │   ├── Home.jsx            # Landing page
-│       │   ├── Generate.jsx        # AI generation with progress bar
-│       │   ├── Dashboard.jsx       # Website management
-│       │   ├── WebsiteEditor.jsx   # Tabbed editor + left-side preview + chat
-│       │   ├── Pricing.jsx         # Plans + Razorpay integration
-│       │   └── LiveSite.jsx        # Public deployed site viewer
+│       │   ├── Home.jsx           # Landing page
+│       │   ├── Generate.jsx       # AI generation with progress bar
+│       │   ├── Dashboard.jsx      # Website management
+│       │   ├── WebsiteEditor.jsx  # Tabbed editor + left-side preview + chat
+│       │   ├── Pricing.jsx        # Plans + Razorpay integration
+│       │   └── LiveSite.jsx       # Public deployed site viewer
 │       │
 │       ├── redux/
-│       │   ├── store.js            # Redux + redux-persist setup
-│       │   └── userSlice.js        # User state management
+│       │   ├── store.js           # Redux + redux-persist setup
+│       │   └── userSlice.js       # User state management
 │       │
-│       ├── firebase.js             # Firebase config
-│       └── App.jsx                 # Routes + ProtectedRoute wrapper
+│       ├── firebase.js            # Firebase config
+│       └── App.jsx                # Routes + ProtectedRoute wrapper
 │
+├── .gitignore
 └── README.md
 ```
+
+> **Note on scope:** `AGENTS.md` files used to direct AI coding agents during development are intentionally excluded from this repository via `.gitignore` and are not part of the shipped product.
 
 ---
 
@@ -267,18 +278,29 @@ cd backend
 npm install
 ```
 
-Create `.env` file in the `backend/` directory:
+Create a `.env` file in the `backend/` directory (see `backend/.env.example` for the full annotated list):
 
-```env
+```bash
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret_key
 PORT=8000
 NODE_ENV=development
 CLIENT_URL=http://localhost:5173
 FRONTEND_URL=http://localhost:5173
+
+# AI — primary + automatic fallback model
 OPENROUTER_API_KEY=your_openrouter_api_key
+AI_PRIMARY_MODEL=deepseek/deepseek-r1
+AI_FALLBACK_MODEL=google/gemini-2.5-pro
+AI_TIMEOUT_MS=90000
+
+# Payments
 RAZORPAY_KEY_ID=your_razorpay_key_id
 RAZORPAY_SECRET=your_razorpay_secret
+
+# Rate limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=100
 ```
 
 ```bash
@@ -292,9 +314,9 @@ cd frontend
 npm install
 ```
 
-Create `.env` file in the `frontend/` directory:
+Create a `.env` file in the `frontend/` directory (see `frontend/.env.example`):
 
-```env
+```bash
 VITE_SERVER_URL=http://localhost:8000
 VITE_FIREBASE_API_KEY=your_firebase_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -316,14 +338,26 @@ npm run dev
 ### 5. OpenRouter Setup
 
 1. Sign up at [openrouter.ai](https://openrouter.ai/)
-2. Get your API key from the dashboard
-3. Add to backend `.env` as `OPENROUTER_API_KEY`
+2. Get your API key from the dashboard (`Keys` → `Create Key`)
+3. Add it to `backend/.env` as `OPENROUTER_API_KEY`
+4. Check your credit balance at `openrouter.ai/credits` if generation requests fail unexpectedly
+
+> ⚠️ **Common setup mistake:** the most frequent cause of a "token not found" or 401 error is a missing or placeholder `OPENROUTER_API_KEY` in `backend/.env`. Make sure it's your real key with no surrounding quotes or spaces, and restart the server after editing.
+
+### 6. Running Tests
+
+```bash
+cd backend
+npm test
+```
+
+Test suites cover the AI client fallback behavior and the full Razorpay payment verification flow (order creation, signature verification, duplicate-payment rejection) against a mocked, in-memory environment — no real API calls are made during testing.
 
 ---
 
 ## 💳 Credit System
 
-| Action | Credits Used |
+| Action | Credits |
 |---|---|
 | Sign up | +100 credits (free) |
 | Generate new website | -10 credits |
@@ -336,46 +370,69 @@ npm run dev
 ## 🚀 Deployment
 
 ### Backend — Deployed on Render
+
 ✅ Live at: `https://velora-ai-ythc.onrender.com`
 
 1. Push code to GitHub
 2. Connect repo to [Render](https://render.com)
-3. Add all backend environment variables
-4. Set the following on Render dashboard:
-```env
+3. Add all backend environment variables (see Backend Setup above)
+4. Set the following on the Render dashboard:
+
+```bash
 NODE_ENV=production
 CLIENT_URL=https://velora-builder.vercel.app
 FRONTEND_URL=https://velora-builder.vercel.app
 ```
 
-> ⚠️ **Note:** Render free tier spins down after 15 min of inactivity. Use [UptimeRobot](https://uptimerobot.com) to ping `https://velora-ai-ythc.onrender.com` every 5 minutes to keep it alive.
+> ⚠️ **Note:** Render's free tier spins down after 15 minutes of inactivity. Use [UptimeRobot](https://uptimerobot.com) to ping `https://velora-ai-ythc.onrender.com` every 5 minutes to keep it warm.
 
 ### Frontend — Deployed on Vercel
+
 ✅ Live at: `https://velora-builder.vercel.app`
 
 1. Connect repo to [Vercel](https://vercel.com)
 2. Set root directory to `frontend`
-3. Add the following environment variables on Vercel dashboard:
-```env
+3. Add the following environment variables on the Vercel dashboard:
+
+```bash
 VITE_SERVER_URL=https://velora-ai-ythc.onrender.com
 VITE_RAZORPAY_KEY_ID=your_razorpay_key_id
 VITE_FIREBASE_API_KEY=your_firebase_api_key
 VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 ```
+
 4. Deploy
 
 ---
 
 ## 🔥 Core Engineering Concepts
 
-- **Prompt Orchestration** — Structured master prompts with strict output format enforcement
-- **AI Reliability Engineering** — Auto-retry pipeline on JSON parse failure
-- **JSON Extraction Pipeline** — Strips markdown fences, finds JSON boundaries, safe parses
-- **Blob URL Rendering** — iframe-safe HTML preview using `URL.createObjectURL`
-- **Iterative Regeneration** — Full conversation history maintained per website
+- **Prompt Orchestration** — A structured master prompt enforcing a strict JSON output schema, a real design system (CSS custom properties, fluid typography, spacing scale), genuine industry-specific content instead of placeholder text, accessibility (WCAG 2.1 AA), and SEO metadata on every generation
+- **Resilient AI Layer** — Primary model (DeepSeek) with automatic, transparent fallback to a secondary model (Gemini 2.5 Pro) on timeout or failure, so a single provider outage doesn't take down generation
+- **AI Reliability Engineering** — Auto-retry pipeline on JSON parse failure, with a hard request timeout via `AbortController` so a hung request never blocks a user indefinitely
+- **JSON Extraction Pipeline** — Strips markdown fences, finds JSON boundaries, and safely parses AI responses before they touch the database
+- **Blob URL Rendering** — iframe-safe HTML preview using `URL.createObjectURL`, sandboxed for security
+- **Iterative Regeneration** — Full conversation history maintained per website, enabling targeted follow-up edits
 - **Slug-Based Deployment** — Unique public URLs generated from title + ID suffix
-- **HMAC Payment Verification** — Razorpay signature verified server-side with crypto
+- **HMAC Payment Verification** — Razorpay signature verified server-side with `crypto`, never trusted from the client
 - **HttpOnly JWT Cookies** — Secure, XSS-resistant authentication
+- **Request Validation & Rate Limiting** — Zod schema validation and per-route rate limits on every public-facing endpoint
+
+---
+
+## 🗺️ Roadmap
+
+Velora AI is under active development. Planned, scoped expansions — implemented one at a time, each fully tested before the next begins:
+
+- [x] Multi-file project support (move beyond single-file HTML generation)
+- [x] File Explorer + tabbed Monaco editor for multi-file projects
+- [x] AI Chat for targeted, file-scoped edits (rather than full regeneration)
+- [x] Export project as a downloadable ZIP
+- [x] Responsive preview toggle (Desktop / Tablet / Mobile)
+- [ ] GitHub export
+- [x] Diff preview + one-step undo for AI chat edits
+
+Deliberately **out of scope** for the near term: additional output frameworks beyond HTML/CSS/JS, automated Vercel/Netlify deploy integration, and real-time collaboration. These are large efforts in their own right and will only be pursued based on real user demand.
 
 ---
 
@@ -399,30 +456,13 @@ git push origin feature/AmazingFeature
 
 ---
 
-## 👨‍💻 Developer
-
-<div align="center">
+## 👨💻 Developer
 
 ### Khushal Singh Sankhla
 
-<p>
-  <a href="https://github.com/khushalsinghsankhla2808">
-    <img src="https://img.shields.io/badge/GitHub-khushalsinghsankhla2808-181717?style=for-the-badge&logo=github" />
-  </a>
-  &nbsp;
-  <a href="https://www.linkedin.com/in/khushal-singh-sankhla/">
-    <img src="https://img.shields.io/badge/LinkedIn-Khushal_Singh_Sankhla-0077B5?style=for-the-badge&logo=linkedin" />
-  </a>
-   <a href="mailto:khushalsinghsankhla203@gmail.com">
-    <img src="https://img.shields.io/badge/Email-Contact-D14836?style=for-the-badge&logo=gmail&logoColor=white" />
-  </a>
-   <a href="mailto: khushalsankhla2808@gmail.com">
-    <img src="https://img.shields.io/badge/Email-Contact-D14836?style=for-the-badge&logo=gmail&logoColor=white" />
-  </a>
-</p>
-
-
-</div>
+[![GitHub](https://img.shields.io/badge/GitHub-khushalsinghsankhla2808-181717?style=for-the-badge&logo=github)](https://github.com/khushalsinghsankhla2808)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Khushal_Singh_Sankhla-0077B5?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/khushal-singh-sankhla/)
+[![Email](https://img.shields.io/badge/Email-Contact-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:khushalsinghsankhla203@gmail.com)
 
 ---
 
@@ -432,10 +472,6 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 ---
 
-<div align="center">
-
 **If you found Velora AI useful or interesting, please consider giving it a ⭐ on GitHub!**
 
 *Built with ❤️ by Khushal Singh Sankhla*
-
-</div>
