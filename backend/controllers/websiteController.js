@@ -95,48 +95,41 @@ export const generateWebsite = async (req, res) => {
         creditsReserved = true;
 
         const masterPrompt = `
-YOU ARE A PRINCIPAL FRONTEND ARCHITECT AND SENIOR UI/UX ENGINEER.
-BUILD A HIGH-END PRODUCTION-GRADE WEBSITE. YOU MUST DELIVER MULTIPLE MODULAR FILES AS A PROJECT STRUCTURE (E.G., index.html, style.css, script.js).
+You are a **Principal Frontend Architect** at a top-tier agency (ex-Apple + Vercel). 
+Generate a **production-grade, visually stunning, fully responsive website** that looks like it was hand-crafted by a senior designer + developer team in 2026.
 
 USER REQUIREMENT: ${prompt}
 
-CODE STYLE REQUIREMENT:
-${langInstructions || "Use clean semantic HTML5, vanilla CSS3, and vanilla JavaScript ES6+."}
+CODE STYLE: ${langInstructions || "Modern vanilla HTML5 + Tailwind via CDN + clean JS"}
 
-STRICT TECHNICAL RULES:
-- Deliver modular, clean code separated into logical files (e.g. index.html, style.css, script.js).
-- index.html must load the style.css stylesheet via a link tag and script.js script via a script tag.
-- Fully responsive: mobile (<768px), tablet (768–1024px), desktop (>1024px)
-- Mobile-first CSS, CSS Grid/Flexbox, relative units, media queries
-- SPA with JavaScript navigation — Home, About, Services, Contact sections
-- At least ONE section visible on initial load without any user interaction
-- Smooth section transitions using JavaScript (no page reloads)
-- HTTPS images only — use: https://images.unsplash.com/photo-XXXXX?auto=format&fit=crop&w=1200&q=80
-- NO lorem ipsum text — write real, professional business content
-- iframe srcdoc compatible (no external dependencies except where code style explicitly requires CDN)
-- Modern UI design (2025–2026 standards)
-- Form validation with JavaScript
-- Active navigation state updates on section switch
-- Smooth scroll, hover effects, and subtle animations
-- Use only HTTPS URLs for ALL external resources
+CRITICAL REQUIREMENTS:
+1. **Design Excellence**: Premium aesthetics, generous whitespace, micro-animations, perfect typography (system + 1-2 Google fonts), subtle shadows/gradients, hover states.
+2. **Structure**: Multi-section SPA with smooth JS navigation. At minimum: Hero, Features/Services, About, Testimonials, Contact (with form).
+3. **Responsiveness**: Mobile-first, flawless on all devices. Use Tailwind or clean CSS Grid/Flex.
+4. **Performance & Accessibility**: Semantic HTML, proper ARIA, fast load, lazy images, good contrast.
+5. **Content**: Rich, professional, benefit-focused copy tailored to the business. NO lorem ipsum. Use real Unsplash/Pexels-style image URLs.
+6. **Interactivity**: Working form (JS validation + fake submission), smooth scroll, mobile menu, at least 2-3 subtle animations (GSAP-like via CSS/JS).
+7. **Technical**: 
+   - index.html loads external CSS/JS via relative paths.
+   - All assets HTTPS.
+   - No broken links or console errors.
+   - Dark/light mode toggle if it fits the brand.
 
-QUALITY RULES:
-- Professional, business-ready content
-- Pixel-perfect spacing and typography
-- Accessible (aria labels, semantic HTML, contrast ratios)
-- No broken layouts at any viewport size
-
-OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS. NO EXPLANATION:
+OUTPUT FORMAT — **RAW JSON ONLY**:
 {
-  "message": "Short professional confirmation message",
+  "message": "Brief professional summary of the generated site",
   "files": [
-    { "path": "index.html", "content": "<FULL VALID HTML DOCUMENT LINKING TO style.css AND script.js>" },
-    { "path": "style.css", "content": "<CSS CONTENT>" },
-    { "path": "script.js", "content": "<JS CONTENT>" }
-  ]
+    {"path": "index.html", "content": "..."},
+    {"path": "style.css", "content": "..."},
+    {"path": "script.js", "content": "..."}
+    // Support additional files: about.html, components/, assets/ descriptions etc.
+  ],
+  "metadata": {
+    "primaryColor": "#3b82f6",
+    "fontFamily": "Inter, system-ui",
+    "suggestedSlug": "business-name"
+  }
 }
-
-IF YOU RETURN ANYTHING OTHER THAN RAW JSON → RESPONSE IS INVALID.
 `;
 
         let parsed = null;
