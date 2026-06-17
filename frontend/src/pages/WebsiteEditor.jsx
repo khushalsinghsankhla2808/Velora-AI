@@ -515,42 +515,6 @@ const WebsiteEditor = () => {
 
       {/* Columns 3 & 4 Container */}
       <div className="flex-1 flex flex-row overflow-hidden relative">
-        {/* Column 3: Tabbed Monaco Code Editor (toggled by showCode) */}
-        <AnimatePresence>
-          {showCode && (
-            <motion.div
-              initial={{ flexGrow: 0, width: 0 }}
-              animate={{ flexGrow: 1, width: "auto" }}
-              exit={{ flexGrow: 0, width: 0 }}
-              className="flex flex-col border-r border-white/10 min-w-0 bg-[#1e1e1e] overflow-hidden"
-            >
-              <EditorTabs
-                openFiles={openFiles}
-                activeFileId={activeFileId}
-                unsavedChanges={unsavedChanges}
-                onTabSelect={selectTab}
-                onTabClose={closeTab}
-                saving={saving}
-              />
-              <div className="flex-1 min-h-0 relative">
-                {activeFileId && activeFile ? (
-                  <Editor
-                    theme="vs-dark"
-                    value={activeFile.content}
-                    language={activeFile.language}
-                    onChange={handleEditorChange}
-                  />
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-sm gap-2">
-                    <p>No file open.</p>
-                    <p className="text-xs text-zinc-600">Select a file from the explorer to start editing</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Column 4: Live Preview Column */}
         <main className="flex-1 flex flex-col min-w-0 bg-black relative">
           <div className="h-12 px-4 flex justify-between items-center border-b border-white/10 bg-black/80 shrink-0">
@@ -620,6 +584,42 @@ const WebsiteEditor = () => {
             />
           </div>
         </main>
+
+        {/* Column 3: Tabbed Monaco Code Editor (toggled by showCode) */}
+        <AnimatePresence>
+          {showCode && (
+            <motion.div
+              initial={{ flexGrow: 0, width: 0 }}
+              animate={{ flexGrow: 1, width: "auto" }}
+              exit={{ flexGrow: 0, width: 0 }}
+              className="flex flex-col border-l border-white/10 min-w-0 bg-[#1e1e1e] overflow-hidden"
+            >
+              <EditorTabs
+                openFiles={openFiles}
+                activeFileId={activeFileId}
+                unsavedChanges={unsavedChanges}
+                onTabSelect={selectTab}
+                onTabClose={closeTab}
+                saving={saving}
+              />
+              <div className="flex-1 min-h-0 relative">
+                {activeFileId && activeFile ? (
+                  <Editor
+                    theme="vs-dark"
+                    value={activeFile.content}
+                    language={activeFile.language}
+                    onChange={handleEditorChange}
+                  />
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-sm gap-2">
+                    <p>No file open.</p>
+                    <p className="text-xs text-zinc-600">Select a file from the explorer to start editing</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Full Preview Modal */}
