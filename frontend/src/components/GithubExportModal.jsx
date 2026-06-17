@@ -25,6 +25,7 @@ const GithubExportModal = ({ id, website, onClose }) => {
   const [repoName, setRepoName] = useState(defaultRepoName);
   const [isPrivate, setIsPrivate] = useState(false);
   const [showToken, setShowToken] = useState(false);
+  const [exportType, setExportType] = useState("html");
 
   // States: 'idle' | 'auth' | 'success' | 'error'
   const [status, setStatus] = useState("idle");
@@ -54,6 +55,7 @@ const GithubExportModal = ({ id, website, onClose }) => {
           githubToken,
           repoName,
           isPrivate,
+          exportType,
         },
         { withCredentials: true }
       );
@@ -154,6 +156,22 @@ const GithubExportModal = ({ id, website, onClose }) => {
                   className="w-full px-3.5 py-2.5 bg-zinc-900/60 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500/80 transition"
                   required
                 />
+              </div>
+
+              {/* Export Format Selector */}
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-zinc-400">
+                  Export Format
+                </label>
+                <select
+                  value={exportType}
+                  onChange={(e) => setExportType(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-zinc-900/60 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-purple-500/80 transition cursor-pointer"
+                >
+                  <option value="html" className="bg-zinc-950 text-white">HTML / CSS / JS (Vanilla)</option>
+                  <option value="react" className="bg-zinc-950 text-white">React + Vite Scaffolding</option>
+                  <option value="nextjs" className="bg-zinc-950 text-white">Next.js App Router Structure</option>
+                </select>
               </div>
 
               {/* Privacy Toggle */}

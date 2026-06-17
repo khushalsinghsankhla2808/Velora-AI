@@ -39,11 +39,26 @@ import {
   acceptChatEdit,
   undoChatEdit,
   exportToGithub,
+  analyzeStack,
+  saveVersion,
+  listVersions,
+  restoreVersion,
+  forkWebsite,
+  debugWebsite,
+  saveComponentToMarketplace,
+  listMarketplaceComponents,
+  importMarketplaceComponent,
+  addCollaborator,
+  listCollaborators,
+  removeCollaborator,
+  auditWebsite,
+  generateBrand,
 } from "../controllers/websiteController.js";
 
 const router = express.Router();
 
 router.post("/generate", isAuthenticated, generateLimiter, validate(GenerateSchema), generateWebsite);
+router.post("/analyze-stack", isAuthenticated, validate(GenerateSchema), analyzeStack);
 router.get("/getall", isAuthenticated, getAllWebsite);
 router.get("/getbyid/:id", isAuthenticated, getWebsiteById);
 router.post("/update/:id", isAuthenticated, updateLimiter, validate(UpdateSchema), changeWebsite);
@@ -66,5 +81,32 @@ router.post("/:projectId/chat", isAuthenticated, updateLimiter, validate(ChatSch
 router.get("/:projectId/chat", isAuthenticated, updateLimiter, validate(ChatHistorySchema), getChatHistory);
 router.post("/:projectId/chat/accept", isAuthenticated, updateLimiter, validate(AcceptChatSchema), acceptChatEdit);
 router.post("/:projectId/chat/undo", isAuthenticated, updateLimiter, validate(ProjectIdSchema), undoChatEdit);
+
+// Version history
+router.post("/:projectId/versions", isAuthenticated, updateLimiter, saveVersion);
+router.get("/:projectId/versions", isAuthenticated, updateLimiter, listVersions);
+router.post("/:projectId/versions/:versionId/restore", isAuthenticated, updateLimiter, restoreVersion);
+
+// Forking
+router.post("/:projectId/fork", isAuthenticated, updateLimiter, forkWebsite);
+
+// Debugger
+router.post("/:projectId/debug", isAuthenticated, updateLimiter, debugWebsite);
+
+// Marketplace
+router.post("/marketplace", isAuthenticated, saveComponentToMarketplace);
+router.get("/marketplace", isAuthenticated, listMarketplaceComponents);
+router.post("/:projectId/marketplace/:componentId/import", isAuthenticated, updateLimiter, importMarketplaceComponent);
+
+// Collaboration
+router.post("/:projectId/collaborators", isAuthenticated, updateLimiter, addCollaborator);
+router.get("/:projectId/collaborators", isAuthenticated, updateLimiter, listCollaborators);
+router.delete("/:projectId/collaborators/:userId", isAuthenticated, updateLimiter, removeCollaborator);
+
+// Audit
+router.post("/:projectId/audit", isAuthenticated, updateLimiter, auditWebsite);
+
+// Brand Generator
+router.post("/:projectId/brand", isAuthenticated, updateLimiter, generateBrand);
 
 export default router;

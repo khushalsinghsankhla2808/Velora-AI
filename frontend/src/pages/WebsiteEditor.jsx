@@ -1,10 +1,10 @@
 // PATH: frontend/src/pages/WebsiteEditor.jsx
 import React, { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
-import { Code2, Download, Loader2, MessageSquare, Monitor, Rocket, Send, X, Github } from "lucide-react";
+import { Code2, Download, Loader2, MessageSquare, Monitor, Rocket, Send, X, Github, History, ShieldAlert, Palette, Users, Grid, Play, Bug, Share2, FileCode, Check, AlertCircle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { setUserData } from "../redux/userSlice";
 import FileExplorer from "../components/FileExplorer";
@@ -13,6 +13,11 @@ import ChatPanel from "../components/ChatPanel";
 import PreviewToolbar from "../components/PreviewToolbar";
 import DiffPreviewModal from "../components/DiffPreviewModal";
 import GithubExportModal from "../components/GithubExportModal";
+import VersionHistoryPanel from "../components/VersionHistoryPanel";
+import AuditPanel from "../components/AuditPanel";
+import BrandPanel from "../components/BrandPanel";
+import CollaborationPanel from "../components/CollaborationPanel";
+import MarketplacePanel from "../components/MarketplacePanel";
 
 const CODE_OPTIONS = [
   { value: "keep",          label: "Keep current style" },
@@ -48,8 +53,8 @@ const thinkingSteps = [
   "Finalizing update...",
 ];
 
-const bundleHTMLFrontend = (filesList) => {
-  const indexFile = filesList.find(f => f.path === "index.html");
+const bundleHTMLFrontend = (filesList, entryPath = "index.html") => {
+  const indexFile = filesList.find(f => f.path === entryPath);
   if (!indexFile) return "";
 
   let html = indexFile.content;
@@ -71,6 +76,67 @@ const bundleHTMLFrontend = (filesList) => {
       html = html.replace(scriptRegex, `<script>\n${file.content}\n</script>`);
     }
   });
+
+  // Inject preview navigation and console error capturing interceptor script
+  const interceptorScript = `
+<script>
+// Capture navigation clicks
+document.addEventListener('click', function(e) {
+  const anchor = e.target.closest('a');
+  if (anchor && anchor.getAttribute('href')) {
+    const href = anchor.getAttribute('href').trim();
+    if (href.endsWith('.html') && !href.startsWith('http') && !href.startsWith('//') && !href.startsWith('#')) {
+      e.preventDefault();
+      window.parent.postMessage({ type: 'NAVIGATE_PREVIEW', path: href }, '*');
+    }
+  }
+});
+
+// Capture window script errors
+window.onerror = function(message, source, lineno, colno, error) {
+  window.parent.postMessage({
+    type: 'CONSOLE_ERROR',
+    error: {
+      message: message,
+      source: source || 'inline',
+      lineno: lineno || 0,
+      colno: colno || 0,
+      stack: error ? error.stack : ''
+    }
+  }, '*');
+  return false;
+};
+
+// Capture promise rejections
+window.addEventListener('unhandledrejection', function(event) {
+  window.parent.postMessage({
+    type: 'CONSOLE_ERROR',
+    error: {
+      message: event.reason ? (event.reason.message || String(event.reason)) : 'Unhandled Promise Rejection',
+      stack: event.reason ? event.reason.stack : ''
+    }
+  }, '*');
+});
+
+// Capture console error calls
+const originalConsoleError = console.error;
+console.error = function(...args) {
+  originalConsoleError.apply(console, args);
+  window.parent.postMessage({
+    type: 'CONSOLE_ERROR',
+    error: {
+      message: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ')
+    }
+  }, '*');
+};
+</script>
+`;
+
+  if (html.includes("</body>")) {
+    html = html.replace("</body>", `${interceptorScript}\n</body>`);
+  } else {
+    html += interceptorScript;
+  }
 
   return html;
 };
@@ -172,6 +238,104 @@ const WebsiteEditor = () => {
     }
   };
 
+  const handleFork = async () => {
+    try {
+      setUpdateLoading(true);
+      const res = await axios.post(
+        `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/fork`,
+        {},
+        { withCredentials: true }
+      );
+      if (res.data?.success) {
+        navigate(`/editor/${res.data.data.websiteId}`);
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error("Fork failed:", err);
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
+  const handleApplyBrand = async (brandData) => {
+    const styleFile = files.find(f => f.path === "style.css");
+    const indexFile = files.find(f => f.path === "index.html");
+
+    if (!styleFile || !indexFile) {
+      throw new Error("Could not find style.css or index.html in project files.");
+    }
+
+    const cssVars = `:root {\n  --primary-color: ${brandData.colors.primary};\n  --secondary-color: ${brandData.colors.secondary};\n  --bg-color: ${brandData.colors.background};\n  --text-color: ${brandData.colors.text};\n  --neutral-color: ${brandData.colors.neutral};\n  --font-family: '${brandData.typography.bodyFont}', sans-serif;\n  --heading-font: '${brandData.typography.headingFont}', sans-serif;\n  --border-radius: ${brandData.styles.borderRadius};\n  --box-shadow: ${brandData.styles.boxShadow};\n}\n\nbody {\n  background-color: var(--bg-color);\n  color: var(--text-color);\n  font-family: var(--font-family);\n}\n\nh1, h2, h3, h4, h5, h6 {\n  font-family: var(--heading-font);\n}\n\n`;
+
+    let cleanedStyleContent = styleFile.content;
+    if (cleanedStyleContent.includes(":root {")) {
+      const rootEndIndex = cleanedStyleContent.indexOf("}", cleanedStyleContent.indexOf(":root {"));
+      if (rootEndIndex !== -1) {
+        cleanedStyleContent = cleanedStyleContent.substring(rootEndIndex + 1);
+      }
+    }
+    const newStyleContent = cssVars + cleanedStyleContent;
+
+    const fontLinks = `\n    <link rel="preconnect" href="https://fonts.googleapis.com">\n    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n    <link href="${brandData.typography.headingLink}" rel="stylesheet">\n    <link href="${brandData.typography.bodyLink}" rel="stylesheet">\n`;
+    
+    let newIndexContent = indexFile.content;
+    if (!newIndexContent.includes(brandData.typography.bodyLink)) {
+      newIndexContent = newIndexContent.replace("</head>", `${fontLinks}\n</head>`);
+    }
+
+    await axios.put(
+      `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/files/${styleFile._id}`,
+      { content: newStyleContent },
+      { withCredentials: true }
+    );
+
+    await axios.put(
+      `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/files/${indexFile._id}`,
+      { content: newIndexContent },
+      { withCredentials: true }
+    );
+
+    await handleChatUpdateSuccess({
+      remainingCredits: null,
+      latestCode: bundleHTMLFrontend(
+        files.map(f => {
+          if (f.path === "style.css") return { ...f, content: newStyleContent };
+          if (f.path === "index.html") return { ...f, content: newIndexContent };
+          return f;
+        })
+      ),
+      filesChanged: ["style.css", "index.html"]
+    });
+  };
+
+  const handleRunAIDebugger = async (errorLog) => {
+    if (debugLoading) return;
+    setDebugLoading(true);
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/debug`,
+        {
+          errorMessage: errorLog.message,
+          errorStack: errorLog.stack,
+        },
+        { withCredentials: true }
+      );
+      if (response.data?.success) {
+        const proposedDiff = response.data.data;
+        setPendingDiff({
+          instruction: `Auto-fix console runtime error: ${errorLog.message}`,
+          message: proposedDiff.message,
+          filesChanged: proposedDiff.filesChanged,
+          tokensUsed: 0,
+        });
+      }
+    } catch (err) {
+      console.error("AI Debugger repair request failed:", err);
+    } finally {
+      setDebugLoading(false);
+    }
+  };
+
   // Multi-file Workspace state
   const [files, setFiles] = useState([]);
   const [openFiles, setOpenFiles] = useState([]);
@@ -182,9 +346,22 @@ const WebsiteEditor = () => {
   const [explorerLoading, setExplorerLoading] = useState(false);
 
   // UI Panel Layout states
+  const navigate = useNavigate();
   const [showCode, setShowCode] = useState(true);
   const [showFullPreview, setShowFullPreview] = useState(false);
-  const [showChat, setShowChat] = useState(false);
+  const [activeSidebarTab, setActiveSidebarTab] = useState(null);
+  const [showExplorer, setShowExplorer] = useState(true);
+  
+  // Console logs state for standard errors
+  const [consoleLogs, setConsoleLogs] = useState([]);
+  const [showConsole, setShowConsole] = useState(false);
+  const [debugLoading, setDebugLoading] = useState(false);
+
+  // Active page preview (defaults to "index.html")
+  const [activePreviewPage, setActivePreviewPage] = useState("index.html");
+
+  // ZIP export framework stack
+  const [zipExportType, setZipExportType] = useState("html");
 
   const activeFile = files.find(f => f._id === activeFileId);
 
@@ -234,7 +411,7 @@ const WebsiteEditor = () => {
 
       // Update bundled code in iframe
       const updatedFiles = files.map(f => f._id === fileId ? { ...f, content: fileToSave.content } : f);
-      const bundled = bundleHTMLFrontend(updatedFiles);
+      const bundled = bundleHTMLFrontend(updatedFiles, activePreviewPage);
       setCode(bundled);
     } catch (err) {
       console.error("Save failed:", err);
@@ -327,9 +504,6 @@ const WebsiteEditor = () => {
 
   const handleRenameFile = async (fileId, newPath, isFolder) => {
     if (isFolder) {
-      // For virtual folders, we find all files matching the prefix path
-      // but standard API path renames specific files. We rename the files individually.
-      // Wait, let's keep it simple: rename standard files.
       return;
     }
     const result = await axios.patch(
@@ -361,11 +535,8 @@ const WebsiteEditor = () => {
     });
   };
 
-
-
   const handleDeploy = async () => {
     try {
-      // Flush save before deploying
       if (activeFileId && unsavedChanges[activeFileId]) {
         await flushSave(activeFileId);
       }
@@ -411,6 +582,46 @@ const WebsiteEditor = () => {
       handleFileSelect({ fileId: file._id });
     }
   };
+
+  const handleTabClick = (tab) => {
+    if (activeSidebarTab === tab) {
+      setActiveSidebarTab(null);
+    } else {
+      setActiveSidebarTab(tab);
+    }
+  };
+
+  // Handle iframe message forwarding (console errors & multi-page navigation)
+  useEffect(() => {
+    const handleIframeMessage = (event) => {
+      if (!event.data) return;
+
+      if (event.data.type === "NAVIGATE_PREVIEW") {
+        const path = event.data.path;
+        const cleanPath = path.replace(/^(\.\/|\/)/, "");
+        setActivePreviewPage(cleanPath);
+      }
+
+      if (event.data.type === "CONSOLE_ERROR") {
+        const err = event.data.error;
+        setConsoleLogs((prev) => [...prev, { ...err, timestamp: new Date() }]);
+        setShowConsole(true);
+      }
+    };
+
+    window.addEventListener("message", handleIframeMessage);
+    return () => window.removeEventListener("message", handleIframeMessage);
+  }, []);
+
+  // Update compiled iframe source doc when active page changes or files reload
+  useEffect(() => {
+    if (files && files.length > 0) {
+      const compiled = bundleHTMLFrontend(files, activePreviewPage);
+      if (compiled) {
+        setCode(compiled);
+      }
+    }
+  }, [files, activePreviewPage]);
 
   // Set iframe preview source doc
   useEffect(() => {
@@ -474,43 +685,184 @@ const WebsiteEditor = () => {
     );
   }
 
-
-
   return (
-    <div className="h-screen w-screen flex bg-black text-white overflow-hidden">
-      {/* Column 1: File Explorer */}
-      <aside className="w-60 shrink-0 border-r border-white/10 bg-zinc-950 flex flex-col z-40">
-        <FileExplorer
-          files={files}
-          activeFileId={activeFileId}
-          onFileSelect={handleFileSelect}
-          onCreateFile={handleCreateFile}
-          onCreateFolder={handleCreateFolder}
-          onRenameFile={handleRenameFile}
-          onDeleteFile={handleDeleteFile}
-          loading={explorerLoading}
-        />
-      </aside>
+    <div className="h-screen w-screen flex bg-black text-white overflow-hidden select-none">
+      {/* Activity Bar (Vertical Dock) */}
+      <div className="w-16 shrink-0 bg-zinc-950 border-r border-white/10 flex flex-col items-center py-4 justify-between z-50">
+        {/* Top group */}
+        <div className="flex flex-col items-center gap-4 w-full">
+          {/* File Explorer Toggle */}
+          <button
+            onClick={() => setShowExplorer(!showExplorer)}
+            className={`p-2.5 rounded-xl transition relative cursor-pointer ${showExplorer ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+            title="Toggle File Explorer"
+          >
+            <FileCode size={20} />
+          </button>
 
-      {/* Column 2: AI Chat Sidebar (toggled by showChat) */}
+          <hr className="w-8 border-white/5" />
+
+          {/* AI Chat */}
+          <button
+            onClick={() => handleTabClick("chat")}
+            className={`p-2.5 rounded-xl transition relative cursor-pointer ${activeSidebarTab === "chat" ? "bg-purple-600/20 text-purple-400" : "text-zinc-500 hover:text-zinc-300"}`}
+            title="AI Chat Assistant"
+          >
+            {activeSidebarTab === "chat" && <div className="absolute left-0 top-1/4 bottom-1/4 w-0.5 bg-purple-500 rounded-r" />}
+            <MessageSquare size={20} />
+          </button>
+
+          {/* Version History */}
+          <button
+            onClick={() => handleTabClick("versions")}
+            className={`p-2.5 rounded-xl transition relative cursor-pointer ${activeSidebarTab === "versions" ? "bg-purple-600/20 text-purple-400" : "text-zinc-500 hover:text-zinc-300"}`}
+            title="Version History"
+          >
+            {activeSidebarTab === "versions" && <div className="absolute left-0 top-1/4 bottom-1/4 w-0.5 bg-purple-500 rounded-r" />}
+            <History size={20} />
+          </button>
+
+          {/* Quality Audit */}
+          <button
+            onClick={() => handleTabClick("audit")}
+            className={`p-2.5 rounded-xl transition relative cursor-pointer ${activeSidebarTab === "audit" ? "bg-purple-600/20 text-purple-400" : "text-zinc-500 hover:text-zinc-300"}`}
+            title="AI Quality Audit"
+          >
+            {activeSidebarTab === "audit" && <div className="absolute left-0 top-1/4 bottom-1/4 w-0.5 bg-purple-500 rounded-r" />}
+            <ShieldAlert size={20} />
+          </button>
+
+          {/* Brand Palette */}
+          <button
+            onClick={() => handleTabClick("brand")}
+            className={`p-2.5 rounded-xl transition relative cursor-pointer ${activeSidebarTab === "brand" ? "bg-purple-600/20 text-purple-400" : "text-zinc-500 hover:text-zinc-300"}`}
+            title="AI Brand Identity"
+          >
+            {activeSidebarTab === "brand" && <div className="absolute left-0 top-1/4 bottom-1/4 w-0.5 bg-purple-500 rounded-r" />}
+            <Palette size={20} />
+          </button>
+
+          {/* Collaboration */}
+          <button
+            onClick={() => handleTabClick("team")}
+            className={`p-2.5 rounded-xl transition relative cursor-pointer ${activeSidebarTab === "team" ? "bg-purple-600/20 text-purple-400" : "text-zinc-500 hover:text-zinc-300"}`}
+            title="Team Collaboration"
+          >
+            {activeSidebarTab === "team" && <div className="absolute left-0 top-1/4 bottom-1/4 w-0.5 bg-purple-500 rounded-r" />}
+            <Users size={20} />
+          </button>
+
+          {/* Component Marketplace */}
+          <button
+            onClick={() => handleTabClick("marketplace")}
+            className={`p-2.5 rounded-xl transition relative cursor-pointer ${activeSidebarTab === "marketplace" ? "bg-purple-600/20 text-purple-400" : "text-zinc-500 hover:text-zinc-300"}`}
+            title="Component Marketplace"
+          >
+            {activeSidebarTab === "marketplace" && <div className="absolute left-0 top-1/4 bottom-1/4 w-0.5 bg-purple-500 rounded-r" />}
+            <Grid size={20} />
+          </button>
+        </div>
+
+        {/* Bottom group */}
+        <div className="flex flex-col items-center gap-4 w-full">
+          {/* Fork Project */}
+          <button
+            onClick={handleFork}
+            className="p-2.5 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 transition cursor-pointer"
+            title="Fork Project (Clone)"
+          >
+            <Share2 size={20} />
+          </button>
+
+          {/* Console / Terminal logs */}
+          <button
+            onClick={() => setShowConsole(!showConsole)}
+            className={`p-2.5 rounded-xl transition relative cursor-pointer ${showConsole ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+            title="Console Logs"
+          >
+            <Bug size={20} />
+            {consoleLogs.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-[8px] font-bold text-white scale-90 border border-zinc-950 animate-pulse">
+                {consoleLogs.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Column 1: File Explorer */}
       <AnimatePresence>
-        {showChat && (
+        {showExplorer && (
+          <motion.aside
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 240, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            className="shrink-0 border-r border-white/10 bg-zinc-950 flex flex-col z-40 overflow-hidden"
+          >
+            <FileExplorer
+              files={files}
+              activeFileId={activeFileId}
+              onFileSelect={handleFileSelect}
+              onCreateFile={handleCreateFile}
+              onCreateFolder={handleCreateFolder}
+              onRenameFile={handleRenameFile}
+              onDeleteFile={handleDeleteFile}
+              loading={explorerLoading}
+            />
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* Column 2: Side Panel (AI Chat, History, etc.) */}
+      <AnimatePresence>
+        {activeSidebarTab !== null && (
           <motion.aside
             initial={{ width: 0, opacity: 0 }}
             animate={{ width: 350, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
-            className="border-r border-white/10 bg-black/80 flex flex-col relative z-30 shrink-0 overflow-hidden"
+            className="border-r border-white/10 bg-black/85 flex flex-col relative z-30 shrink-0 overflow-hidden"
           >
-            <ChatPanel
-              projectId={id}
-              onClose={() => setShowChat(false)}
-              onUpdateSuccess={handleChatUpdateSuccess}
-              onFileClick={handleChatFileClick}
-              updateLoading={updateLoading}
-              setUpdateLoading={setUpdateLoading}
-              onProposedDiff={(diffData) => setPendingDiff(diffData)}
-              chatRefreshTrigger={chatRefreshTrigger}
-            />
+            {activeSidebarTab === "chat" && (
+              <ChatPanel
+                projectId={id}
+                onClose={() => setActiveSidebarTab(null)}
+                onUpdateSuccess={handleChatUpdateSuccess}
+                onFileClick={handleChatFileClick}
+                updateLoading={updateLoading}
+                setUpdateLoading={setUpdateLoading}
+                onProposedDiff={(diffData) => setPendingDiff(diffData)}
+                chatRefreshTrigger={chatRefreshTrigger}
+              />
+            )}
+            {activeSidebarTab === "versions" && (
+              <VersionHistoryPanel
+                projectId={id}
+                onUpdateSuccess={handleChatUpdateSuccess}
+              />
+            )}
+            {activeSidebarTab === "audit" && (
+              <AuditPanel
+                projectId={id}
+              />
+            )}
+            {activeSidebarTab === "brand" && (
+              <BrandPanel
+                projectId={id}
+                onApplyBrand={handleApplyBrand}
+              />
+            )}
+            {activeSidebarTab === "team" && (
+              <CollaborationPanel
+                projectId={id}
+              />
+            )}
+            {activeSidebarTab === "marketplace" && (
+              <MarketplacePanel
+                projectId={id}
+                activeFile={activeFile}
+                onUpdateSuccess={handleChatUpdateSuccess}
+              />
+            )}
           </motion.aside>
         )}
       </AnimatePresence>
@@ -520,25 +872,60 @@ const WebsiteEditor = () => {
         {/* Column 4: Live Preview Column */}
         <main className="flex-1 flex flex-col min-w-0 bg-black relative">
           <div className="h-12 px-4 flex justify-between items-center border-b border-white/10 bg-black/80 shrink-0">
-            <p className="text-xs text-zinc-400">Live Preview</p>
+            {/* Dynamic Preview Router Select */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-zinc-400 font-semibold">Preview Page:</span>
+              <select
+                value={activePreviewPage}
+                onChange={(e) => setActivePreviewPage(e.target.value)}
+                className="bg-white/5 border border-white/10 rounded-lg text-xs px-2.5 py-1 text-white outline-none cursor-pointer focus:border-purple-500/50"
+              >
+                {files.filter(f => f.path && f.path.endsWith('.html')).map(f => (
+                  <option key={f.path} value={f.path} className="bg-zinc-900">
+                    {f.path}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
             <PreviewToolbar current={previewMode} onChange={setPreviewMode} />
             <div className="flex items-center gap-2">
+              {/* Premium ZIP Export Select Dropdown */}
+              <div className="relative flex items-center bg-white/10 rounded-xl overflow-hidden hover:bg-white/15 transition border border-white/5">
+                <button
+                  onClick={() => handleDownloadZip(zipExportType)}
+                  disabled={downloadLoading}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white border-r border-white/10 cursor-pointer disabled:opacity-50 hover:bg-white/5"
+                >
+                  {downloadLoading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                  ZIP
+                </button>
+                <select
+                  value={zipExportType}
+                  onChange={(e) => setZipExportType(e.target.value)}
+                  className="bg-zinc-950 text-white text-[10px] pl-2 pr-6 py-2 outline-none cursor-pointer hover:bg-white/5 appearance-none font-semibold"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+                    backgroundPosition: 'right 6px center',
+                    backgroundSize: '10px',
+                    backgroundRepeat: 'no-repeat'
+                  }}
+                >
+                  <option value="html" className="bg-zinc-950">HTML</option>
+                  <option value="react" className="bg-zinc-950">React</option>
+                  <option value="nextjs" className="bg-zinc-950">Next.js</option>
+                </select>
+              </div>
+
+              {/* Fork button */}
               <button
-                onClick={handleDownloadZip}
-                disabled={downloadLoading}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white cursor-pointer disabled:opacity-50"
-                title="Download Project ZIP"
+                onClick={handleFork}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                title="Fork Project (Create Copy)"
               >
-                {downloadLoading ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" /> Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download size={14} /> Download ZIP
-                  </>
-                )}
+                <Share2 size={14} /> Fork
               </button>
+
               <button
                 onClick={() => setShowGithubModal(true)}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white cursor-pointer"
@@ -546,6 +933,7 @@ const WebsiteEditor = () => {
               >
                 <Github size={14} /> Export to GitHub
               </button>
+
               {!website.deployed && (
                 <button
                   onClick={handleDeploy}
@@ -555,9 +943,9 @@ const WebsiteEditor = () => {
                 </button>
               )}
               <button
-                onClick={() => setShowChat(!showChat)}
-                className={`p-2 rounded-xl transition cursor-pointer ${showChat ? "bg-white/20 text-white" : "bg-white/10 hover:bg-white/20 text-zinc-400"}`}
-                title="Toggle AI Chat"
+                onClick={() => handleTabClick(activeSidebarTab ? null : "chat")}
+                className={`p-2 rounded-xl transition cursor-pointer ${activeSidebarTab ? "bg-white/20 text-white" : "bg-white/10 hover:bg-white/20 text-zinc-400"}`}
+                title="Toggle Panels"
               >
                 <MessageSquare size={18} />
               </button>
@@ -626,6 +1014,84 @@ const WebsiteEditor = () => {
                   </div>
                 )}
               </div>
+
+              {/* Console Drawer */}
+              <AnimatePresence>
+                {showConsole && (
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: 260 }}
+                    exit={{ height: 0 }}
+                    className="border-t border-white/10 bg-zinc-950 flex flex-col overflow-hidden text-zinc-300 font-mono text-xs z-20 shrink-0"
+                  >
+                    {/* Console Header */}
+                    <div className="h-9 px-4 border-b border-white/5 bg-zinc-900 flex items-center justify-between shrink-0">
+                      <span className="font-semibold text-zinc-400 uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                        <Bug size={12} className="text-red-400" />
+                        Console Logs ({consoleLogs.length})
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setConsoleLogs([])}
+                          className="px-2 py-0.5 rounded bg-white/5 border border-white/5 hover:bg-white/10 transition text-[10px] cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                        <button
+                          onClick={() => setShowConsole(false)}
+                          className="p-1 rounded hover:bg-white/5 text-zinc-400 hover:text-white cursor-pointer"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Console Output */}
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2 select-text">
+                      {consoleLogs.length === 0 ? (
+                        <div className="text-zinc-600 italic py-6 text-center text-[10px]">No logs captured yet. Sandbox output will appear here.</div>
+                      ) : (
+                        consoleLogs.map((log, index) => (
+                          <div key={index} className="p-2.5 rounded-xl border border-red-500/10 bg-red-500/5 hover:border-red-500/20 transition space-y-2">
+                            <div className="flex justify-between items-start gap-4">
+                              <div className="space-y-1">
+                                <p className="text-red-400 font-semibold leading-relaxed break-all select-text">
+                                  {log.message}
+                                </p>
+                                {log.source && (
+                                  <p className="text-[10px] text-zinc-500 select-all font-mono">
+                                    Source: {log.source}:{log.lineno}:{log.colno}
+                                  </p>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleRunAIDebugger(log)}
+                                disabled={debugLoading}
+                                className="shrink-0 bg-red-500/20 hover:bg-red-500/35 border border-red-500/25 px-2.5 py-1 rounded-lg text-red-300 font-semibold flex items-center gap-1 transition text-[10px] active:scale-95 disabled:opacity-50 cursor-pointer"
+                              >
+                                {debugLoading ? (
+                                  <Loader2 size={10} className="animate-spin" />
+                                ) : (
+                                  <Sparkles size={10} />
+                                )}
+                                Fix with AI
+                              </button>
+                            </div>
+                            {log.stack && (
+                              <details className="mt-1 cursor-pointer">
+                                <summary className="text-[9px] text-zinc-500 select-none hover:text-zinc-300 font-sans">Show Stack Trace</summary>
+                                <pre className="mt-1.5 p-2 bg-black/40 rounded-lg text-[9px] text-zinc-500 max-h-24 overflow-auto border border-white/5 font-mono whitespace-pre select-text">
+                                  {log.stack}
+                                </pre>
+                              </details>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>

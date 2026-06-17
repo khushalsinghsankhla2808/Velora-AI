@@ -10,6 +10,8 @@ import { isValidObjectId, parsePagination, validateText } from "../utils/validat
 import { ensureWebsiteFiles, bundleHTML, saveWebsiteFiles, getLanguageFromPath } from "../utils/migrationHelper.js";
 import { FileModel } from "../models/fileModel.js";
 import { Chat } from "../models/chatModel.js";
+import { Version } from "../models/versionModel.js";
+import { MarketplaceComponent } from "../models/marketplaceComponentModel.js";
 // archiver is used to programmatically bundle and stream project files as a ZIP archive
 import { ZipArchive } from "archiver";
 import { Octokit } from "@octokit/rest";
@@ -820,6 +822,7 @@ export const getChatHistory = async (req, res) => {
 export const exportWebsite = async (req, res) => {
   try {
     const { websiteId } = req.body;
+    const exportType = req.query.exportType || "html";
 
     const website = await Website.findById(websiteId);
     if (!website) {
@@ -838,15 +841,19 @@ export const exportWebsite = async (req, res) => {
       return sendError(res, "NO_FILES_FOUND", "No files found to export", 404);
     }
 
+    // Transpile/Scaffold if needed
+    const exportFiles = getExportFiles(files, exportType, website.title);
+
     // Standardize file name
     const sanitizedTitle = website.title
       .replace(/[^a-zA-Z0-9-_]/g, "_")
       .slice(0, 50) || "website";
 
     res.setHeader("Content-Type", "application/zip");
+    const filenameSuffix = exportType === "html" ? "_export.zip" : `_${exportType}_export.zip`;
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="${sanitizedTitle}_export.zip"`
+      `attachment; filename="${sanitizedTitle}${filenameSuffix}"`
     );
 
     const archive = new ZipArchive({
@@ -862,7 +869,7 @@ export const exportWebsite = async (req, res) => {
 
     archive.pipe(res);
 
-    for (const file of files) {
+    for (const file of exportFiles) {
       archive.append(file.content || "", { name: file.path });
     }
 
@@ -879,7 +886,7 @@ export const exportWebsite = async (req, res) => {
 export const exportToGithub = async (req, res) => {
   try {
     const websiteId = req.params.id;
-    const { githubToken, repoName, isPrivate } = req.body;
+    const { githubToken, repoName, isPrivate, exportType = "html" } = req.body;
 
     const website = await Website.findById(websiteId);
     if (!website) {
@@ -897,6 +904,9 @@ export const exportToGithub = async (req, res) => {
     if (!files || files.length === 0) {
       return sendError(res, "NO_FILES_FOUND", "No files found to export", 404);
     }
+
+    // Transpile/Scaffold if needed
+    const exportFiles = getExportFiles(files, exportType, website.title);
 
     // Initialize Octokit client
     const octokit = new Octokit({ auth: githubToken });
@@ -933,11 +943,11 @@ export const exportToGithub = async (req, res) => {
 
     // Push files to repository
     // In an empty repository, there is no default branch.
-    // Pushing the first file (index.html) synchronously creates the branch (main).
-    // Sorting files so index.html goes first.
-    const sortedFiles = [...files].sort((a, b) => {
-      if (a.path === "index.html") return -1;
-      if (b.path === "index.html") return 1;
+    // Pushing the first file synchronously creates the branch (main).
+    // Sort files to commit a default entry like index.html or package.json first.
+    const sortedFiles = [...exportFiles].sort((a, b) => {
+      if (a.path === "index.html" || a.path === "package.json") return -1;
+      if (b.path === "index.html" || b.path === "package.json") return 1;
       return a.path.localeCompare(b.path);
     });
 
@@ -1149,5 +1159,869 @@ export const undoChatEdit = async (req, res) => {
   } catch (error) {
     console.error("undoChatEdit error:", error.message);
     return sendError(res, "UNDO_FAILED", "Server error undoing changes", 500);
+  }
+};
+
+// ─── AI Project Intelligence Layer Stack Analysis ───────────────────────────
+export const analyzeStack = async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    if (!prompt || prompt.length < 10) {
+      return sendError(res, "INVALID_PROMPT", "Prompt must be at least 10 characters", 400);
+    }
+
+    const analysisPrompt = `
+You are a Lead Software Architect. Recommend the optimal software architecture and tech stack for this user request.
+
+USER REQUEST: ${prompt}
+
+Analyze the project requirements and determine:
+1. Best Frontend framework (e.g. React/Vite, Next.js, Vue, Angular, Svelte, HTML/CSS/JS)
+2. Best Backend framework (e.g. Express.js, NestJS, Flask, Django, Spring Boot, Laravel, Go Fiber, None/Serverless)
+3. Best Database (e.g. MongoDB, PostgreSQL, MySQL, Firebase, None)
+4. Optimal folder structure configuration
+5. Best deployment strategy (e.g. Vercel, Render, AWS, Heroku)
+6. Key performance and scalability optimization strategies
+
+OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
+{
+  "recommendedStack": {
+    "frontend": "React/Vite",
+    "backend": "Express.js",
+    "database": "MongoDB",
+    "architecture": "Single Page Application with REST API",
+    "folderStructure": "Client-Server structure",
+    "deployment": "Vercel (Frontend) & Render (Backend)",
+    "optimization": "MongoDB Indexes, Redis Caching, CDN asset caching"
+  },
+  "explanation": "Detailed professional explanation of why this stack is selected based on complexity, traffic and standards.",
+  "alternatives": [
+    {
+      "stack": "Next.js + PostgreSQL",
+      "reason": "If Server-Side Rendering (SSR) or SEO is highly prioritized."
+    }
+  ]
+}
+`;
+
+    const result = await callOpenRouter({
+      prompt: analysisPrompt,
+      model: "google/gemini-2.0-flash-exp:free",
+      providerName: "Gemini",
+      systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
+    });
+
+    if (result.success) {
+      const parsed = extractJson(result.content);
+      if (parsed) {
+        return sendSuccess(res, parsed);
+      }
+    }
+    return sendError(res, "ANALYSIS_FAILED", "AI returned an invalid analysis. Please try again.", 400);
+  } catch (error) {
+    console.error("analyzeStack error:", error.message);
+    return sendError(res, "SERVER_ERROR", "Server error during stack analysis", 500);
+  }
+};
+
+// ─── Project Version Control Endpoints ─────────────────────────────────────
+export const saveVersion = async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+    const { label, description } = req.body;
+
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+
+    await migrateLegacyProjectToDB(website);
+    const files = await FileModel.find({ projectId }).lean();
+
+    const versionFiles = files.map(f => ({
+      path: f.path,
+      content: f.content,
+      language: f.language,
+    }));
+
+    const version = await Version.create({
+      projectId,
+      label: label || `Snapshot ${new Date().toLocaleString()}`,
+      description: description || "",
+      files: versionFiles,
+      createdBy: req.user._id,
+    });
+
+    return sendSuccess(res, {
+      message: "Version saved successfully",
+      version: {
+        _id: version._id,
+        label: version.label,
+        description: version.description,
+        createdAt: version.createdAt,
+      },
+    }, 201);
+  } catch (error) {
+    console.error("saveVersion error:", error.message);
+    return sendError(res, "VERSION_SAVE_FAILED", "Server error saving version", 500);
+  }
+};
+
+export const listVersions = async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+
+    const versions = await Version.find({ projectId })
+      .select("-files")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return sendSuccess(res, { versions });
+  } catch (error) {
+    console.error("listVersions error:", error.message);
+    return sendError(res, "VERSION_LIST_FAILED", "Server error listing versions", 500);
+  }
+};
+
+export const restoreVersion = async (req, res) => {
+  try {
+    const { projectId, versionId } = req.params;
+
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+
+    const version = await Version.findOne({ _id: versionId, projectId });
+    if (!version) {
+      return sendError(res, "VERSION_NOT_FOUND", "Version snapshot not found", 404);
+    }
+
+    // Restore files:
+    // 1. Delete all current files
+    await FileModel.deleteMany({ projectId });
+
+    // 2. Insert files from the version
+    const restoredFiles = [];
+    for (const vFile of version.files) {
+      const dbFile = await FileModel.create({
+        projectId,
+        path: vFile.path,
+        content: vFile.content,
+        language: vFile.language,
+      });
+      restoredFiles.push(dbFile._id);
+    }
+
+    // 3. Update website files references and bundle code
+    website.files = restoredFiles;
+    const allFiles = await FileModel.find({ projectId });
+    website.latestCode = bundleHTML(allFiles);
+    await website.save();
+
+    return sendSuccess(res, {
+      message: "Version restored successfully",
+      latestCode: website.latestCode,
+    });
+  } catch (error) {
+    console.error("restoreVersion error:", error.message);
+    return sendError(res, "VERSION_RESTORE_FAILED", "Server error restoring version", 500);
+  }
+};
+
+// ─── Fork Project Endpoint ──────────────────────────────────────────────────
+export const forkWebsite = async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+
+    const originalWebsite = await Website.findById(projectId).populate("files");
+    if (!originalWebsite) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Original project not found", 404);
+    }
+
+    // Create cloned website document
+    const forkedWebsite = new Website({
+      user: req.user._id,
+      title: `Fork of ${originalWebsite.title}`,
+      conversation: [
+        { role: "user", content: `Forked project from ${originalWebsite.title}` },
+        { role: "ai", content: "Successfully forked workspace. You can now edit this project independently." }
+      ],
+      forkedFrom: originalWebsite._id,
+      deployed: false,
+    });
+
+    await forkedWebsite.save();
+
+    // Copy files
+    let originalFiles = [];
+    if (originalWebsite.files && originalWebsite.files.length > 0) {
+      originalFiles = originalWebsite.files;
+    } else {
+      originalFiles = [{ path: "index.html", content: originalWebsite.latestCode || "", language: "html" }];
+    }
+
+    const newFileIds = [];
+    for (const fileItem of originalFiles) {
+      const clonedFile = await FileModel.create({
+        projectId: forkedWebsite._id,
+        path: fileItem.path,
+        content: fileItem.content,
+        language: fileItem.language || getLanguageFromPath(fileItem.path),
+      });
+      newFileIds.push(clonedFile._id);
+    }
+
+    forkedWebsite.files = newFileIds;
+    const allFiles = await FileModel.find({ projectId: forkedWebsite._id });
+    forkedWebsite.latestCode = bundleHTML(allFiles);
+    await forkedWebsite.save();
+
+    return sendSuccess(res, {
+      message: "Project forked successfully",
+      websiteId: forkedWebsite._id,
+    }, 201);
+  } catch (error) {
+    console.error("forkWebsite error:", error.message);
+    return sendError(res, "FORK_FAILED", "Server error forking project", 500);
+  }
+};
+
+// ─── AI Debugger Repair Endpoint ───────────────────────────────────────────
+export const debugWebsite = async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+    const { errorMessage, errorStack } = req.body;
+
+    const website = await Website.findById(projectId);
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+
+    await migrateLegacyProjectToDB(website);
+    const files = await FileModel.find({ projectId }).lean();
+    const filesData = files.map(f => ({ path: f.path, content: f.content }));
+
+    const debuggerPrompt = `
+You are a Lead AI Debugger and Repair Agent.
+The client application preview encountered a runtime exception:
+Error Message: ${errorMessage || "Unknown error"}
+Error Stack Trace: ${errorStack || "Not provided"}
+
+Here are the current files in the workspace:
+${JSON.stringify(filesData, null, 2)}
+
+STRICT RULES:
+1. Return ONLY the files that are modified to correct the exception.
+2. DO NOT return empty files, placeholders, or snippets. Return the complete corrected content of the files.
+3. If a file does not need change to fix the bug, do not return it.
+
+OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
+{
+  "explanation": "A description of the bug and the implemented correction.",
+  "files": [
+    { "path": "script.js", "content": "<COMPLETE REPLACING CONTENT>" }
+  ]
+}
+`;
+
+    let parsed = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const currentPrompt = attempt === 0 ? debuggerPrompt : debuggerPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. The JSON must contain a files array.";
+      const result = await callOpenRouter({
+        prompt: currentPrompt,
+        model: "google/gemini-2.0-flash-exp:free",
+        providerName: "Gemini",
+        systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
+      });
+      if (result.success) {
+        parsed = extractJson(result.content);
+        if (parsed && parsed.files) break;
+      }
+    }
+
+    if (!parsed || !parsed.files) {
+      return sendError(res, "DEBUG_FAILED", "AI failed to generate structural debug proposal.", 400);
+    }
+
+    // Prepare filesChanged structure for DiffPreviewModal
+    const filesChanged = [];
+    for (const responseFile of parsed.files) {
+      const dbFile = await FileModel.findOne({ projectId, path: responseFile.path });
+      const oldContent = dbFile ? dbFile.content : "";
+      filesChanged.push({
+        path: responseFile.path,
+        oldContent,
+        newContent: responseFile.content,
+      });
+    }
+
+    return sendSuccess(res, {
+      message: parsed.explanation || "Debugger proposed a bug fix.",
+      filesChanged,
+    });
+  } catch (error) {
+    console.error("debugWebsite error:", error.message);
+    return sendError(res, "SERVER_ERROR", "Server error during debug repair", 500);
+  }
+};
+
+// ─── Component Marketplace Endpoints ────────────────────────────────────────
+export const saveComponentToMarketplace = async (req, res) => {
+  try {
+    const { name, description, category, code, tags, previewUrl } = req.body;
+    if (!name || !code) {
+      return sendError(res, "INVALID_INPUT", "Component name and code content are required", 400);
+    }
+
+    const component = await MarketplaceComponent.create({
+      name,
+      description: description || "",
+      category: category || "Custom",
+      code,
+      authorId: req.user._id,
+      tags: tags || [],
+      previewUrl: previewUrl || "",
+    });
+
+    return sendSuccess(res, {
+      message: "Component successfully saved to Marketplace",
+      component,
+    }, 201);
+  } catch (error) {
+    console.error("saveComponentToMarketplace error:", error.message);
+    return sendError(res, "MARKETPLACE_SAVE_FAILED", "Server error saving component", 500);
+  }
+};
+
+export const listMarketplaceComponents = async (req, res) => {
+  try {
+    const { category, search } = req.query;
+    const filter = {};
+    if (category) filter.category = category;
+    if (search) filter.name = { $regex: search, $options: "i" };
+
+    const components = await MarketplaceComponent.find(filter)
+      .populate("authorId", "name avatar")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return sendSuccess(res, { components });
+  } catch (error) {
+    console.error("listMarketplaceComponents error:", error.message);
+    return sendError(res, "MARKETPLACE_LIST_FAILED", "Server error fetching components", 500);
+  }
+};
+
+export const importMarketplaceComponent = async (req, res) => {
+  try {
+    const { projectId, componentId } = req.params;
+
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+
+    const component = await MarketplaceComponent.findById(componentId);
+    if (!component) {
+      return sendError(res, "COMPONENT_NOT_FOUND", "Marketplace component not found", 404);
+    }
+
+    await migrateLegacyProjectToDB(website);
+
+    // Create a new component file in the project
+    const sanitizedName = component.name.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const targetPath = `components/${sanitizedName}.html`;
+
+    const existing = await FileModel.findOne({ projectId, path: targetPath });
+    let finalPath = targetPath;
+    if (existing) {
+      finalPath = `components/${sanitizedName}_${Date.now()}.html`;
+    }
+
+    const file = await FileModel.create({
+      projectId,
+      path: finalPath,
+      content: component.code,
+      language: "html",
+    });
+
+    website.files.push(file._id);
+    const allFiles = await FileModel.find({ projectId });
+    website.latestCode = bundleHTML(allFiles);
+    await website.save();
+
+    return sendSuccess(res, {
+      message: "Component imported successfully",
+      file,
+      latestCode: website.latestCode,
+    }, 201);
+  } catch (error) {
+    console.error("importMarketplaceComponent error:", error.message);
+    return sendError(res, "MARKETPLACE_IMPORT_FAILED", "Server error importing component", 500);
+  }
+};
+
+// Helper for role-based access control
+export const getProjectRole = (website, userId) => {
+  if (!website || !userId) return null;
+  if (website.user.toString() === userId.toString()) return "owner";
+  const member = website.members?.find(m => m.user.toString() === userId.toString());
+  return member ? member.role : null;
+};
+
+// ─── Team Collaboration Endpoints ───────────────────────────────────────────
+export const addCollaborator = async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+    const { email, role } = req.body;
+
+    const website = await Website.findById(projectId);
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+
+    // Only owner can manage collaborators
+    if (website.user.toString() !== req.user._id.toString()) {
+      return sendError(res, "ACCESS_DENIED", "Only project owner can manage collaborators", 403);
+    }
+
+    const targetUser = await User.findOne({ email });
+    if (!targetUser) {
+      return sendError(res, "USER_NOT_FOUND", "User with this email does not exist", 404);
+    }
+
+    if (targetUser._id.toString() === website.user.toString()) {
+      return sendError(res, "INVALID_ACTION", "Owner is already a collaborator", 400);
+    }
+
+    const alreadyMember = website.members.some(m => m.user.toString() === targetUser._id.toString());
+    if (alreadyMember) {
+      return sendError(res, "ALREADY_MEMBER", "User is already a collaborator", 409);
+    }
+
+    website.members.push({
+      user: targetUser._id,
+      role: role || "editor",
+    });
+
+    await website.save();
+
+    return sendSuccess(res, {
+      message: "Collaborator added successfully",
+      member: {
+        user: {
+          _id: targetUser._id,
+          name: targetUser.name,
+          email: targetUser.email,
+          avatar: targetUser.avatar,
+        },
+        role: role || "editor",
+      },
+    }, 201);
+  } catch (error) {
+    console.error("addCollaborator error:", error.message);
+    return sendError(res, "COLLABORATOR_ADD_FAILED", "Server error adding collaborator", 500);
+  }
+};
+
+export const listCollaborators = async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+
+    const website = await Website.findById(projectId)
+      .populate("user", "name email avatar")
+      .populate("members.user", "name email avatar");
+
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+
+    const role = getProjectRole(website, req.user._id);
+    if (!role) {
+      return sendError(res, "ACCESS_DENIED", "You do not have access to this project", 403);
+    }
+
+    return sendSuccess(res, {
+      owner: website.user,
+      members: website.members,
+    });
+  } catch (error) {
+    console.error("listCollaborators error:", error.message);
+    return sendError(res, "COLLABORATORS_LIST_FAILED", "Server error fetching collaborators", 500);
+  }
+};
+
+export const removeCollaborator = async (req, res) => {
+  try {
+    const { projectId, userId } = req.params;
+
+    const website = await Website.findById(projectId);
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+
+    // Only owner can manage collaborators
+    if (website.user.toString() !== req.user._id.toString()) {
+      return sendError(res, "ACCESS_DENIED", "Only project owner can manage collaborators", 403);
+    }
+
+    website.members = website.members.filter(m => m.user.toString() !== userId);
+    await website.save();
+
+    return sendSuccess(res, { message: "Collaborator removed successfully" });
+  } catch (error) {
+    console.error("removeCollaborator error:", error.message);
+    return sendError(res, "COLLABORATOR_REMOVE_FAILED", "Server error removing collaborator", 500);
+  }
+};
+
+// ─── Export Framework Transpilation Helper ──────────────────────────────────
+export const getExportFiles = (originalFiles, exportType, projectTitle) => {
+  const sanitizedTitle = projectTitle.toLowerCase().replace(/[^a-z0-9]/g, "-") || "project";
+
+  if (exportType === "react") {
+    const files = [];
+
+    // package.json
+    files.push({
+      path: "package.json",
+      content: JSON.stringify({
+        name: sanitizedTitle,
+        private: true,
+        version: "0.0.0",
+        type: "module",
+        scripts: {
+          dev: "vite",
+          build: "vite build",
+          preview: "vite preview"
+        },
+        dependencies: {
+          react: "^18.2.0",
+          "react-dom": "^18.2.0",
+          "lucide-react": "^0.344.0"
+        },
+        devDependencies: {
+          "@vitejs/plugin-react": "^4.2.1",
+          autoprefixer: "^10.4.18",
+          postcss: "^8.4.35",
+          tailwindcss: "^3.4.1",
+          vite: "^5.1.4"
+        }
+      }, null, 2)
+    });
+
+    // vite.config.js
+    files.push({
+      path: "vite.config.js",
+      content: `import { defineConfig } from 'vite';\nimport react from '@vitejs/plugin-react';\n\nexport default defineConfig({\n  plugins: [react()],\n});`
+    });
+
+    // tailwind.config.js
+    files.push({
+      path: "tailwind.config.js",
+      content: `/** @type {import('tailwindcss').Config} */\nexport default {\n  content: [\n    "./index.html",\n    "./src/**/*.{js,ts,jsx,tsx}",\n  ],\n  theme: {\n    extend: {},\n  },\n  plugins: [],\n}`
+    });
+
+    // postcss.config.js
+    files.push({
+      path: "postcss.config.js",
+      content: `export default {\n  plugins: {\n    tailwindcss: {},\n    autoprefixer: {},\n  },\n}`
+    });
+
+    // index.html
+    files.push({
+      path: "index.html",
+      content: `<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n    <title>${projectTitle}</title>\n  </head>\n  <body class="bg-black text-white">\n    <div id="root"></div>\n    <script type="module" src="/src/main.jsx"></script>\n  </body>\n</html>`
+    });
+
+    // src/main.jsx
+    files.push({
+      path: "src/main.jsx",
+      content: `import React from 'react'\nimport ReactDOM from 'react-dom/client'\nimport App from './App.jsx'\nimport './index.css'\n\nReactDOM.createRoot(document.getElementById('root')).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>,\n)`
+    });
+
+    // src/index.css
+    const cssContent = originalFiles.find(f => f.path === "style.css")?.content || "";
+    files.push({
+      path: "src/index.css",
+      content: `@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n/* Custom Styles */\n${cssContent}`
+    });
+
+    // Translate HTML files into React JSX components
+    originalFiles.forEach(file => {
+      if (file.path.endsWith(".html")) {
+        const baseName = file.path.replace(".html", "");
+        const componentName = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+
+        let bodyContent = file.content;
+        const bodyMatch = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(file.content);
+        if (bodyMatch) {
+          bodyContent = bodyMatch[1];
+        }
+
+        // Remove relative script tags
+        bodyContent = bodyContent.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+
+        const scriptContent = originalFiles.find(f => f.path === "script.js")?.content || "";
+
+        files.push({
+          path: `src/components/${componentName}.jsx`,
+          content: `import React, { useEffect } from 'react';\n\nexport default function ${componentName}() {\n  useEffect(() => {\n    ${scriptContent.replace(/`/g, "\\`").replace(/\${/g, "\\${")}\n  }, []);\n\n  return (\n    <div dangerouslySetInnerHTML={{ __html: \`${bodyContent.replace(/`/g, "\\`").replace(/\${/g, "\\${")}\` }} />\n  );\n}`
+        });
+      }
+    });
+
+    // src/App.jsx router
+    const htmlFiles = originalFiles.filter(f => f.path.endsWith(".html"));
+    const imports = htmlFiles.map(f => {
+      const baseName = f.path.replace(".html", "");
+      const name = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+      return `import ${name} from './components/${name}';`;
+    }).join("\n");
+
+    const routes = htmlFiles.map(f => {
+      const baseName = f.path.replace(".html", "");
+      const name = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+      const routePath = f.path === "index.html" ? "/" : `/${baseName}`;
+      return `  if (path === '${routePath}') return <${name} />;\n`;
+    }).join("");
+
+    files.push({
+      path: "src/App.jsx",
+      content: `import React, { useState, useEffect } from 'react';\n${imports}\n\nexport default function App() {\n  const [path, setPath] = useState(window.location.pathname);\n\n  useEffect(() => {\n    const handleLocationChange = () => {\n      setPath(window.location.pathname);\n    };\n    window.addEventListener('popstate', handleLocationChange);\n    return () => window.removeEventListener('popstate', handleLocationChange);\n  }, []);\n\n  // Intercept links\n  useEffect(() => {\n    const handleLinkClick = (e) => {\n      const anchor = e.target.closest('a');\n      if (anchor && anchor.getAttribute('href')) {\n        const href = anchor.getAttribute('href').trim();\n        if (href.endsWith('.html') && !href.startsWith('http') && !href.startsWith('//')) {\n          e.preventDefault();\n          const newPath = href === 'index.html' ? '/' : '/' + href.replace('.html', '');\n          window.history.pushState({}, '', newPath);\n          setPath(newPath);\n        }\n      }\n    };\n    document.addEventListener('click', handleLinkClick);\n    return () => document.removeEventListener('click', handleLinkClick);\n  }, []);\n\n${routes}\n  return <div className="p-8 text-center">Page Not Found</div>;\n}`
+    });
+
+    return files;
+  } else if (exportType === "nextjs") {
+    const files = [];
+
+    // package.json
+    files.push({
+      path: "package.json",
+      content: JSON.stringify({
+        name: sanitizedTitle,
+        version: "0.1.0",
+        private: true,
+        scripts: {
+          dev: "next dev",
+          build: "next build",
+          start: "next start"
+        },
+        dependencies: {
+          next: "^14.1.0",
+          react: "^18.2.0",
+          "react-dom": "^18.2.0",
+          "lucide-react": "^0.344.0"
+        },
+        devDependencies: {
+          autoprefixer: "^10.4.18",
+          postcss: "^8.4.35",
+          tailwindcss: "^3.4.1"
+        }
+      }, null, 2)
+    });
+
+    // tailwind.config.js
+    files.push({
+      path: "tailwind.config.js",
+      content: `/** @type {import('tailwindcss').Config} */\nmodule.exports = {\n  content: [\n    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",\n  ],\n  theme: {\n    extend: {},\n  },\n  plugins: [],\n}`
+    });
+
+    // postcss.config.js
+    files.push({
+      path: "postcss.config.js",
+      content: `module.exports = {\n  plugins: {\n    tailwindcss: {},\n    autoprefixer: {},\n  },\n}`
+    });
+
+    // src/app/globals.css
+    const cssContent = originalFiles.find(f => f.path === "style.css")?.content || "";
+    files.push({
+      path: "src/app/globals.css",
+      content: `@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n${cssContent}`
+    });
+
+    // src/app/layout.jsx
+    files.push({
+      path: "src/app/layout.jsx",
+      content: `import './globals.css'\n\nexport const metadata = {\n  title: '${projectTitle}',\n  description: 'Generated by Velora AI',\n}\n\nexport default function RootLayout({ children }) {\n  return (\n    <html lang="en">\n      <body className="bg-black text-white">{children}</body>\n    </html>\n  )\n}`
+    });
+
+    // Translate each page to Next.js routes
+    originalFiles.forEach(file => {
+      if (file.path.endsWith(".html")) {
+        const baseName = file.path.replace(".html", "");
+        const isIndex = file.path === "index.html";
+        const routePath = isIndex ? "src/app" : `src/app/${baseName}`;
+
+        let bodyContent = file.content;
+        const bodyMatch = /<body[^>]*>([\s\S]*?)<\/body>/i.exec(file.content);
+        if (bodyMatch) {
+          bodyContent = bodyMatch[1];
+        }
+
+        bodyContent = bodyContent.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+        const scriptContent = originalFiles.find(f => f.path === "script.js")?.content || "";
+
+        files.push({
+          path: `${routePath}/page.jsx`,
+          content: `"use client";\nimport React, { useEffect } from 'react';\n\nexport default function Page() {\n  useEffect(() => {\n    ${scriptContent.replace(/`/g, "\\`").replace(/\${/g, "\\${")}\n  }, []);\n\n  // Intercept navigation\n  useEffect(() => {\n    const handleLinkClick = (e) => {\n      const anchor = e.target.closest('a');\n      if (anchor && anchor.getAttribute('href')) {\n        const href = anchor.getAttribute('href').trim();\n        if (href.endsWith('.html') && !href.startsWith('http') && !href.startsWith('//')) {\n          e.preventDefault();\n          const target = href === 'index.html' ? '/' : '/' + href.replace('.html', '');\n          window.location.href = target;\n        }\n      }\n    };\n    document.addEventListener('click', handleLinkClick);\n    return () => document.removeEventListener('click', handleLinkClick);\n  }, []);\n\n  return (\n    <div dangerouslySetInnerHTML={{ __html: \`${bodyContent.replace(/`/g, "\\`").replace(/\${/g, "\\${")}\` }} />\n  );\n}`
+        });
+      }
+    });
+
+    return files;
+  }
+
+  return originalFiles;
+};
+
+// ─── AI Website Auditor Endpoint ─────────────────────────────────────────────
+export const auditWebsite = async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+
+    await migrateLegacyProjectToDB(website);
+    const files = await FileModel.find({ projectId }).lean();
+    const filesData = files.map(f => ({ path: f.path, content: f.content.slice(0, 10000) })); // Truncate content to avoid token blowouts
+
+    const auditPrompt = `
+You are an expert Google Lighthouse Auditor, WCAG 2.1 Accessibility Specialist, and UX Architect.
+Perform a detailed audit on the following files for the project '${website.title}':
+${JSON.stringify(filesData, null, 2)}
+
+Run checks for:
+1. SEO (headings, title, description, tags, alt images)
+2. Accessibility (a11y - contrast, screen reader labels, form labels, landmarks)
+3. Performance (redundant scripts, deferred logic, css nesting)
+4. UX/Best Practices (navigation, mobile responsiveness elements, layout consistency)
+
+OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
+{
+  "seo": 80,
+  "accessibility": 75,
+  "performance": 85,
+  "ux": 80,
+  "details": {
+    "seo": ["Add a meta description to index.html", "Specify alt attributes for images"],
+    "accessibility": ["Ensure contrast ratios on primary text are readable", "Add aria-label attributes to icon-only buttons"],
+    "performance": ["Optimize third-party CDN loading links", "Defer execution of heavy javascript code"],
+    "ux": ["Provide clear feedback on interactive clicks", "Ensure consistent margins on mobile layout cards"]
+  },
+  "recommendations": [
+    {
+      "category": "SEO",
+      "issue": "Missing meta description",
+      "fix": "Add <meta name='description' content='Brief description...' /> in index.html head."
+    }
+  ]
+}
+`;
+
+    const result = await callOpenRouter({
+      prompt: auditPrompt,
+      model: "google/gemini-2.0-flash-exp:free",
+      providerName: "Gemini",
+      systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
+    });
+
+    if (result.success) {
+      const parsed = extractJson(result.content);
+      if (parsed) {
+        return sendSuccess(res, parsed);
+      }
+    }
+
+    return sendError(res, "AUDIT_FAILED", "AI failed to generate a formatted audit report.", 400);
+  } catch (error) {
+    console.error("auditWebsite error:", error.message);
+    return sendError(res, "SERVER_ERROR", "Server error during AI audit", 500);
+  }
+};
+
+// ─── AI Brand Generator Endpoint ─────────────────────────────────────────────
+export const generateBrand = async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+    const { prompt } = req.body;
+
+    if (!prompt) {
+      return sendError(res, "INVALID_INPUT", "Brand prompt description is required", 400);
+    }
+
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+
+    const brandPrompt = `
+You are a Principal Brand Identity Designer.
+Generate a high-end, premium brand kit based on this directive: '${prompt}'.
+
+Include:
+1. Color palette (HEX formats for primary, secondary, background, text, and neutral shades).
+2. Google Font selection (Headings and body font family with import links).
+3. Border radius (e.g., '8px', '16px') and box shadow specifications.
+4. Professional vector logo ideas and motifs.
+
+OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
+{
+  "colors": {
+    "primary": "#6366f1",
+    "secondary": "#a855f7",
+    "background": "#09090b",
+    "text": "#f4f4f5",
+    "neutral": "#18181b"
+  },
+  "typography": {
+    "headingFont": "Outfit",
+    "bodyFont": "Inter",
+    "headingLink": "https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap",
+    "bodyLink": "https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+  },
+  "styles": {
+    "borderRadius": "16px",
+    "boxShadow": "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
+  },
+  "logoRecommendation": "A minimalist abstract shape representing infinity or connectivity."
+}
+`;
+
+    const result = await callOpenRouter({
+      prompt: brandPrompt,
+      model: "google/gemini-2.0-flash-exp:free",
+      providerName: "Gemini",
+      systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
+    });
+
+    if (result.success) {
+      const parsed = extractJson(result.content);
+      if (parsed) {
+        // Save the brand details to project metadata
+        website.brand = {
+          colors: [parsed.colors.primary, parsed.colors.secondary, parsed.colors.background],
+          font: parsed.typography.bodyFont,
+          logoUrl: "", // metadata suggestion only
+        };
+        await website.save();
+
+        return sendSuccess(res, parsed);
+      }
+    }
+
+    return sendError(res, "BRAND_FAILED", "AI failed to generate a formatted brand configuration.", 400);
+  } catch (error) {
+    console.error("generateBrand error:", error.message);
+    return sendError(res, "SERVER_ERROR", "Server error during brand generation", 500);
   }
 };

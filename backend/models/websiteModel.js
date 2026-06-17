@@ -19,6 +19,23 @@ const websiteSchema = new mongoose.Schema(
     deployed: { type: Boolean, default: false },
     deployUrl: String,
     slug: { type: String, unique: true, sparse: true },
+    forkedFrom: { type: mongoose.Schema.Types.ObjectId, ref: "Website" },
+    stack: {
+      type: String,
+      enum: ["html-css-js", "react-vite", "nextjs", "express-mongodb"],
+      default: "html-css-js"
+    },
+    members: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        role: { type: String, enum: ["owner", "editor", "viewer"], default: "editor" }
+      }
+    ],
+    brand: {
+      colors: { type: [String], default: ["#3b82f6", "#1e293b", "#0f172a"] },
+      font: { type: String, default: "Inter, system-ui" },
+      logoUrl: String,
+    }
   },
   { timestamps: true },
 );

@@ -26,11 +26,12 @@ export const getLanguageFromPath = (filePath) => {
 /**
  * Helper to inline styles and scripts into a single HTML document for legacy rendering support in iframe previews.
  * @param {Array<object>} files - Array of file objects with path and content
+ * @param {string} entryPath - The entry file path to bundle
  * @returns {string} Bundled HTML
  */
-export const bundleHTML = (files) => {
+export const bundleHTML = (files, entryPath = "index.html") => {
   if (!Array.isArray(files)) return "";
-  const indexFile = files.find(f => f.path === "index.html");
+  const indexFile = files.find(f => f.path === entryPath);
   if (!indexFile) return "";
 
   let html = indexFile.content;
@@ -53,6 +54,66 @@ export const bundleHTML = (files) => {
       html = html.replace(scriptRegex, `<script>\n${file.content}\n</script>`);
     }
   });
+
+  // Inject preview navigation interceptor script
+  const interceptorScript = `
+<script>
+// Click interceptor for multi-page previews
+document.addEventListener('click', function(e) {
+  const anchor = e.target.closest('a');
+  if (anchor && anchor.getAttribute('href')) {
+    const href = anchor.getAttribute('href').trim();
+    if (href.endsWith('.html') && !href.startsWith('http') && !href.startsWith('//') && !href.startsWith('#')) {
+      e.preventDefault();
+      window.parent.postMessage({ type: 'NAVIGATE_PREVIEW', path: href }, '*');
+    }
+  }
+});
+
+// Capture and forward standard script errors
+window.onerror = function(message, source, lineno, colno, error) {
+  window.parent.postMessage({
+    type: 'CONSOLE_ERROR',
+    error: {
+      message: message,
+      source: source || 'inline',
+      lineno: lineno || 0,
+      colno: colno || 0,
+      stack: error ? error.stack : ''
+    }
+  }, '*');
+  return false;
+};
+
+// Capture and forward unhandled promise rejections
+window.addEventListener('unhandledrejection', function(event) {
+  window.parent.postMessage({
+    type: 'CONSOLE_ERROR',
+    error: {
+      message: event.reason ? (event.reason.message || String(event.reason)) : 'Unhandled Promise Rejection',
+      stack: event.reason ? event.reason.stack : ''
+    }
+  }, '*');
+});
+
+// Intercept console.error calls
+const originalConsoleError = console.error;
+console.error = function(...args) {
+  originalConsoleError.apply(console, args);
+  window.parent.postMessage({
+    type: 'CONSOLE_ERROR',
+    error: {
+      message: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ')
+    }
+  }, '*');
+};
+</script>
+`;
+  if (html.includes("</body>")) {
+    html = html.replace("</body>", `${interceptorScript}\n</body>`);
+  } else {
+    html += interceptorScript;
+  }
 
   return html;
 };
