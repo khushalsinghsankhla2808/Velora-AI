@@ -96,9 +96,9 @@ export const callAIWithFallback = async (prompt, { userId } = {}) => {
   try {
     const content = await fetchWithTimeout(prompt, primaryModel, timeoutMs);
 
-    // Validate if the response is parseable JSON containing a code field
+    // Validate if the response is parseable JSON containing a files field
     const parsed = extractJson(content);
-    if (!parsed || !parsed.code) {
+    if (!parsed || !parsed.files) {
       throw new Error("Invalid or unparseable JSON response format");
     }
 
@@ -117,9 +117,9 @@ export const callAIWithFallback = async (prompt, { userId } = {}) => {
     try {
       const content = await fetchWithTimeout(prompt, fallbackModel, timeoutMs);
 
-      // Validate if the fallback response is parseable JSON containing a code field
+      // Validate if the fallback response is parseable JSON containing a files field
       const parsed = extractJson(content);
-      if (!parsed || !parsed.code) {
+      if (!parsed || !parsed.files) {
         throw new Error("Invalid or unparseable fallback JSON response format");
       }
 

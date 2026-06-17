@@ -25,7 +25,7 @@ const creditTransactionSchema = new mongoose.Schema(
     },
     reason: {
       type: String,
-      enum: ["initial_bonus", "website_generation", "website_update", "plan_purchase"],
+      enum: ["initial_bonus", "website_generation", "website_update", "plan_purchase", "website_chat"],
       required: true,
     },
     description: {

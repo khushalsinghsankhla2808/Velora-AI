@@ -7,6 +7,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import { setUserData } from "../redux/userSlice";
+import FileExplorer from "../components/FileExplorer";
+import EditorTabs from "../components/EditorTabs";
+import ChatPanel from "../components/ChatPanel";
 
 const CODE_OPTIONS = [
   { value: "keep",          label: "Keep current style" },
@@ -19,7 +22,7 @@ const CODE_OPTIONS = [
   { value: "animations",   label: "Animation Focused" },
   { value: "vue",          label: "Vue Style" },
   { value: "react",        label: "React Style" },
-  { value: "scss",         label: "SCSS Architecture" },
+  { value: "scss",          label: "SCSS Architecture" },
   { value: "javascript",   label: "JavaScript Heavy" },
   { value: "typescript",   label: "TypeScript Style" },
 ];
@@ -42,62 +45,243 @@ const thinkingSteps = [
   "Finalizing update...",
 ];
 
+const bundleHTMLFrontend = (filesList) => {
+  const indexFile = filesList.find(f => f.path === "index.html");
+  if (!indexFile) return "";
+
+  let html = indexFile.content;
+
+  // Find css files and inline them
+  filesList.forEach(file => {
+    if (file.path && file.path.endsWith(".css")) {
+      const fileName = file.path;
+      const linkRegex = new RegExp(`<link[^>]*href=["']\\.?/?${fileName.replace(".", "\\.")}["'][^>]*>`, "g");
+      html = html.replace(linkRegex, `<style>\n${file.content}\n</style>`);
+    }
+  });
+
+  // Find js/ts files and inline them
+  filesList.forEach(file => {
+    if (file.path && (file.path.endsWith(".js") || file.path.endsWith(".ts"))) {
+      const fileName = file.path;
+      const scriptRegex = new RegExp(`<script[^>]*src=["']\\.?/?${fileName.replace(".", "\\.")}["'][^>]*>\\s*</script>`, "g");
+      html = html.replace(scriptRegex, `<script>\n${file.content}\n</script>`);
+    }
+  });
+
+  return html;
+};
+
 const WebsiteEditor = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
   const { userData } = useSelector((state) => state.user);
   const iframeRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
+
+  // Core Website state
   const [website, setWebsite] = useState(null);
   const [error, setError] = useState("");
   const [code, setCode] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [prompt, setPrompt] = useState("");
-  const [codePreference, setCodePreference] = useState("keep");
   const [updateLoading, setUpdateLoading] = useState(false);
-  const [thinkingIndex, setThinkingIndex] = useState(0);
-  const [showCode, setShowCode] = useState(false);
+
+  // Multi-file Workspace state
+  const [files, setFiles] = useState([]);
+  const [openFiles, setOpenFiles] = useState([]);
+  const [activeFileId, setActiveFileId] = useState(null);
+  const [unsavedChanges, setUnsavedChanges] = useState({});
+  const [saving, setSaving] = useState({});
+  const [savedContents, setSavedContents] = useState({});
+  const [explorerLoading, setExplorerLoading] = useState(false);
+
+  // UI Panel Layout states
+  const [showCode, setShowCode] = useState(true);
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [model, setModel] = useState(EDITOR_MODELS[0].value);
-  const [selectedModel, setSelectedModel] = useState("google/gemini-2.0-flash-exp:free");
 
-  const handleUpdate = async () => {
-    if (!prompt.trim() || updateLoading) {
-      return;
-    }
+  const activeFile = files.find(f => f._id === activeFileId);
 
-    const currentPrompt = prompt;
-    setPrompt("");
-    setMessages((m) => [...m, { role: "user", content: currentPrompt }]);
-    setUpdateLoading(true);
-
+  // Fetch all files from backend
+  const fetchFiles = async () => {
     try {
-      const result = await axios.post(
-        `${import.meta.env.VITE_SERVER_URL}/api/website/update/${id}`,
-        { prompt: currentPrompt, codePreference, model: selectedModel },
-        { withCredentials: true },
+      setExplorerLoading(true);
+      const result = await axios.get(
+        `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/files`,
+        { withCredentials: true }
       );
-
-      setMessages((m) => [...m, { role: "ai", content: result.data.data.message }]);
-      setCode(result.data.data.code);
-      dispatch(
-        setUserData({ ...userData, credits: result.data.data.remainingCredits }),
-      );
-    } catch (error) {
-      setMessages((m) => [
-        ...m,
-        {
-          role: "ai",
-          content: error.response?.data?.error?.message || "Update failed",
-        },
-      ]);
+      const fetchedFiles = result.data.data.files || [];
+      setFiles(fetchedFiles);
+      
+      const contents = {};
+      fetchedFiles.forEach(f => {
+        contents[f._id] = f.content;
+      });
+      setSavedContents(contents);
+      return fetchedFiles;
+    } catch (err) {
+      console.error("Failed to fetch files:", err);
     } finally {
-      setUpdateLoading(false);
+      setExplorerLoading(false);
     }
   };
 
+  // Immediate Save Flush Function
+  const flushSave = async (fileId) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    const fileToSave = files.find(f => f._id === fileId);
+    if (!fileToSave) return;
+
+    setSaving(prev => ({ ...prev, [fileId]: true }));
+    try {
+      await axios.put(
+        `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/files/${fileId}`,
+        { content: fileToSave.content },
+        { withCredentials: true }
+      );
+      setUnsavedChanges(prev => ({ ...prev, [fileId]: false }));
+      setSavedContents(prev => ({ ...prev, [fileId]: fileToSave.content }));
+
+      // Update bundled code in iframe
+      const updatedFiles = files.map(f => f._id === fileId ? { ...f, content: fileToSave.content } : f);
+      const bundled = bundleHTMLFrontend(updatedFiles);
+      setCode(bundled);
+    } catch (err) {
+      console.error("Save failed:", err);
+    } finally {
+      setSaving(prev => ({ ...prev, [fileId]: false }));
+    }
+  };
+
+  // Switch tabs (flushes unsaved changes on old tab first)
+  const selectTab = async (fileId) => {
+    if (fileId === activeFileId) return;
+    if (activeFileId && unsavedChanges[activeFileId]) {
+      await flushSave(activeFileId);
+    }
+    setActiveFileId(fileId);
+  };
+
+  // Close tabs (flushes unsaved changes first)
+  const closeTab = async (fileId) => {
+    if (unsavedChanges[fileId]) {
+      await flushSave(fileId);
+    }
+
+    if (activeFileId === fileId) {
+      const remaining = openFiles.filter(f => f._id !== fileId);
+      if (remaining.length > 0) {
+        setActiveFileId(remaining[remaining.length - 1]._id);
+      } else {
+        setActiveFileId(null);
+      }
+    }
+
+    setOpenFiles(prev => prev.filter(f => f._id !== fileId));
+  };
+
+  // Monaco Editor Change Listener
+  const handleEditorChange = (value) => {
+    if (!activeFileId) return;
+
+    setFiles(prev =>
+      prev.map(f => (f._id === activeFileId ? { ...f, content: value } : f))
+    );
+
+    const isDirty = value !== savedContents[activeFileId];
+    setUnsavedChanges(prev => ({ ...prev, [activeFileId]: isDirty }));
+
+    if (isDirty) {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      saveTimeoutRef.current = setTimeout(() => {
+        flushSave(activeFileId);
+      }, 500);
+    }
+  };
+
+  // File explorer node clicks
+  const handleFileSelect = (node) => {
+    const isAlreadyOpen = openFiles.some(f => f._id === node.fileId);
+    if (!isAlreadyOpen) {
+      const selectedFile = files.find(f => f._id === node.fileId);
+      if (selectedFile) {
+        setOpenFiles(prev => [...prev, selectedFile]);
+      }
+    }
+    selectTab(node.fileId);
+  };
+
+  const handleCreateFile = async (path) => {
+    const result = await axios.post(
+      `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/files`,
+      { path, content: "" },
+      { withCredentials: true }
+    );
+    const newFile = result.data.data.file;
+    setFiles(prev => [...prev, newFile]);
+    setSavedContents(prev => ({ ...prev, [newFile._id]: "" }));
+    setOpenFiles(prev => [...prev, newFile]);
+    selectTab(newFile._id);
+  };
+
+  const handleCreateFolder = async (path) => {
+    const result = await axios.post(
+      `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/folders`,
+      { path },
+      { withCredentials: true }
+    );
+    await fetchFiles();
+  };
+
+  const handleRenameFile = async (fileId, newPath, isFolder) => {
+    if (isFolder) {
+      // For virtual folders, we find all files matching the prefix path
+      // but standard API path renames specific files. We rename the files individually.
+      // Wait, let's keep it simple: rename standard files.
+      return;
+    }
+    const result = await axios.patch(
+      `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/files/${fileId}/rename`,
+      { newPath },
+      { withCredentials: true }
+    );
+    const updatedFile = result.data.data.file;
+    setFiles(prev => prev.map(f => f._id === fileId ? updatedFile : f));
+    setOpenFiles(prev => prev.map(f => f._id === fileId ? updatedFile : f));
+    setSavedContents(prev => ({ ...prev, [fileId]: updatedFile.content }));
+  };
+
+  const handleDeleteFile = async (fileId, isFolder) => {
+    if (isFolder) {
+      return;
+    }
+    await axios.delete(
+      `${import.meta.env.VITE_SERVER_URL}/api/website/${id}/files/${fileId}`,
+      { withCredentials: true }
+    );
+    await closeTab(fileId);
+    setFiles(prev => prev.filter(f => f._id !== fileId));
+    setOpenFiles(prev => prev.filter(f => f._id !== fileId));
+    setSavedContents(prev => {
+      const copy = { ...prev };
+      delete copy[fileId];
+      return copy;
+    });
+  };
+
+
+
   const handleDeploy = async () => {
     try {
+      // Flush save before deploying
+      if (activeFileId && unsavedChanges[activeFileId]) {
+        await flushSave(activeFileId);
+      }
       const result = await axios.get(
         `${import.meta.env.VITE_SERVER_URL}/api/website/deploy/${website._id}`,
         { withCredentials: true },
@@ -109,31 +293,45 @@ const WebsiteEditor = () => {
         deployUrl: url,
       }));
       window.open(url, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      console.error("Deploy failed:", error.response?.data || error.message);
+    } catch (err) {
+      console.error("Deploy failed:", err.response?.data || err.message);
     }
   };
 
-  useEffect(() => {
-    if (!updateLoading) {
-      return undefined;
+  const handleChatUpdateSuccess = async ({ remainingCredits, latestCode, filesChanged }) => {
+    dispatch(
+      setUserData({ ...userData, credits: remainingCredits })
+    );
+    setCode(latestCode);
+
+    // Re-sync all files
+    const refreshedFiles = await fetchFiles();
+
+    // Update open tabs list references
+    setOpenFiles(prev => {
+      return prev.map(openF => {
+        const match = refreshedFiles.find(rf => rf.path === openF.path);
+        return match || openF;
+      });
+    });
+  };
+
+  const handleChatFileClick = (filePath) => {
+    const file = files.find(f => f.path === filePath);
+    if (file) {
+      handleFileSelect({ fileId: file._id });
     }
+  };
 
-    const interval = setInterval(() => {
-      setThinkingIndex((i) => (i + 1) % thinkingSteps.length);
-    }, 1200);
-
-    return () => clearInterval(interval);
-  }, [updateLoading]);
-
+  // Set iframe preview source doc
   useEffect(() => {
     if (!iframeRef.current || !code) return;
-
     iframeRef.current.srcdoc = code;
   }, [code]);
 
+  // Initial data loading
   useEffect(() => {
-    const loadWebsite = async () => {
+    const loadWebsiteData = async () => {
       try {
         const result = await axios.get(
           `${import.meta.env.VITE_SERVER_URL}/api/website/getbyid/${id}`,
@@ -141,14 +339,35 @@ const WebsiteEditor = () => {
         );
         setWebsite(result.data.data.website);
         setCode(result.data.data.website.latestCode);
-        setMessages(result.data.data.website.conversation || []);
-      } catch (error) {
-        setError(error.response?.data?.error?.message || "Website not found");
+
+        // Fetch project files
+        const loadedFiles = await fetchFiles();
+        if (loadedFiles && loadedFiles.length > 0) {
+          const indexHtml = loadedFiles.find(f => f.path === "index.html");
+          if (indexHtml) {
+            setOpenFiles([indexHtml]);
+            setActiveFileId(indexHtml._id);
+          } else {
+            setOpenFiles([loadedFiles[0]]);
+            setActiveFileId(loadedFiles[0]._id);
+          }
+        }
+      } catch (err) {
+        setError(err.response?.data?.error?.message || "Website not found");
       }
     };
 
-    loadWebsite();
+    loadWebsiteData();
   }, [id]);
+
+  // Cleanup active save timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (error) {
     return (
@@ -166,169 +385,131 @@ const WebsiteEditor = () => {
     );
   }
 
-  const Header = () => (
-    <div className="h-14 px-4 flex items-center justify-between border-b border-white/10">
-      <p className="font-semibold truncate">{website.title}</p>
-      <button
-        onClick={() => setShowChat(false)}
-        className="lg:hidden p-2 rounded-xl hover:bg-white/10 transition"
-      >
-        <X size={18} />
-      </button>
-    </div>
-  );
 
-  const MessagesArea = () => (
-    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-      {messages.map((message, index) => (
-        <div
-          key={`${message.role}-${index}`}
-          className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-            message.role === "user"
-              ? "ml-auto bg-white text-black"
-              : "mr-auto bg-white/5 border border-white/10 text-zinc-200"
-          }`}
-        >
-          {message.content}
-        </div>
-      ))}
-
-      {updateLoading && (
-        <div className="mr-auto max-w-[85%] px-4 py-2.5 rounded-2xl text-xs italic text-zinc-400 bg-white/5 border border-white/10">
-          {thinkingSteps[thinkingIndex]}
-        </div>
-      )}
-    </div>
-  );
-
-  const InputArea = () => (
-    <div className="p-3 border-t border-white/10">
-      <label className="mb-2 block">
-        <span className="mb-1 block text-xs text-zinc-400">AI Model</span>
-        <select
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          disabled={updateLoading}
-          className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-xs text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {EDITOR_MODELS.map((m) => (
-            <option key={m.value} value={m.value} className="bg-zinc-950 text-white">
-              {m.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="mb-2 block">
-        <span className="mb-1 block text-xs text-zinc-400">Code Style</span>
-        <select
-          value={codePreference}
-          onChange={(e) => setCodePreference(e.target.value)}
-          disabled={updateLoading}
-          className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-xs text-white outline-none disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {CODE_OPTIONS.map((option) => (
-            <option
-              key={option.value}
-              value={option.value}
-              className="bg-zinc-950 text-white"
-            >
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="flex gap-2">
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          disabled={updateLoading}
-          rows={3}
-          className="resize-none flex-1 rounded-2xl px-4 py-3 bg-white/5 border border-white/10 outline-none text-sm text-white disabled:opacity-50"
-          placeholder="Ask AI to update this website..."
-        />
-        <button
-          disabled={updateLoading}
-          onClick={handleUpdate}
-          className="px-4 py-3 rounded-2xl bg-white text-black disabled:opacity-50"
-        >
-          <Send size={18} />
-        </button>
-      </div>
-    </div>
-  );
 
   return (
     <div className="h-screen w-screen flex bg-black text-white overflow-hidden">
-      <aside className="hidden lg:flex w-[380px] border-r border-white/10 bg-black/80 flex-col relative z-50">
-        <Header />
-        <MessagesArea />
-        <InputArea />
+      {/* Column 1: File Explorer */}
+      <aside className="w-60 shrink-0 border-r border-white/10 bg-zinc-950 flex flex-col z-40">
+        <FileExplorer
+          files={files}
+          activeFileId={activeFileId}
+          onFileSelect={handleFileSelect}
+          onCreateFile={handleCreateFile}
+          onCreateFolder={handleCreateFolder}
+          onRenameFile={handleRenameFile}
+          onDeleteFile={handleDeleteFile}
+          loading={explorerLoading}
+        />
       </aside>
 
-      <main className="flex-1 flex flex-col relative">
-        <div className="h-14 px-4 flex justify-between items-center border-b border-white/10 bg-black/80">
-          <p className="text-xs text-zinc-400">Live Preview</p>
-          <div className="flex items-center gap-2">
-            {!website.deployed && (
-              <button
-                onClick={handleDeploy}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-linear-to-r from-indigo-500 to-purple-500"
-              >
-                <Rocket size={14} /> Deploy
-              </button>
-            )}
-            <button
-              onClick={() => setShowChat(true)}
-              className="lg:hidden p-2 rounded-xl bg-white/10 hover:bg-white/20 transition"
-            >
-              <MessageSquare size={18} />
-            </button>
-            <button
-              onClick={() => setShowCode(true)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition"
-            >
-              <Code2 size={18} />
-            </button>
-            <button
-              onClick={() => setShowFullPreview(true)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition"
-            >
-              <Monitor size={18} />
-            </button>
-          </div>
-        </div>
-
-        <iframe
-          ref={iframeRef}
-          className="flex-1 w-full bg-white relative z-0"
-          sandbox="allow-scripts allow-forms allow-same-origin"
-          title={website.title}
-        />
-      </main>
-
+      {/* Column 2: AI Chat Sidebar (toggled by showChat) */}
       <AnimatePresence>
-        {showCode && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            className="fixed inset-y-0 right-0 w-full lg:w-[45%] z-[9999] flex flex-col bg-[#1e1e1e]"
+        {showChat && (
+          <motion.aside
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 350, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            className="border-r border-white/10 bg-black/80 flex flex-col relative z-30 shrink-0 overflow-hidden"
           >
-            <div className="h-12 px-4 flex items-center justify-between border-b border-white/10">
-              <p className="text-sm font-medium">index.html</p>
-              <button onClick={() => setShowCode(false)}>
-                <X size={18} />
+            <ChatPanel
+              projectId={id}
+              onClose={() => setShowChat(false)}
+              onUpdateSuccess={handleChatUpdateSuccess}
+              onFileClick={handleChatFileClick}
+              updateLoading={updateLoading}
+              setUpdateLoading={setUpdateLoading}
+            />
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {/* Columns 3 & 4 Container */}
+      <div className="flex-1 flex flex-row overflow-hidden relative">
+        {/* Column 3: Tabbed Monaco Code Editor (toggled by showCode) */}
+        <AnimatePresence>
+          {showCode && (
+            <motion.div
+              initial={{ flexGrow: 0, width: 0 }}
+              animate={{ flexGrow: 1, width: "auto" }}
+              exit={{ flexGrow: 0, width: 0 }}
+              className="flex flex-col border-r border-white/10 min-w-0 bg-[#1e1e1e] overflow-hidden"
+            >
+              <EditorTabs
+                openFiles={openFiles}
+                activeFileId={activeFileId}
+                unsavedChanges={unsavedChanges}
+                onTabSelect={selectTab}
+                onTabClose={closeTab}
+                saving={saving}
+              />
+              <div className="flex-1 min-h-0 relative">
+                {activeFileId && activeFile ? (
+                  <Editor
+                    theme="vs-dark"
+                    value={activeFile.content}
+                    language={activeFile.language}
+                    onChange={handleEditorChange}
+                  />
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-sm gap-2">
+                    <p>No file open.</p>
+                    <p className="text-xs text-zinc-600">Select a file from the explorer to start editing</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Column 4: Live Preview Column */}
+        <main className="flex-1 flex flex-col min-w-0 bg-black relative">
+          <div className="h-12 px-4 flex justify-between items-center border-b border-white/10 bg-black/80 shrink-0">
+            <p className="text-xs text-zinc-400">Live Preview</p>
+            <div className="flex items-center gap-2">
+              {!website.deployed && (
+                <button
+                  onClick={handleDeploy}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-linear-to-r from-indigo-500 to-purple-500 cursor-pointer"
+                >
+                  <Rocket size={14} /> Deploy
+                </button>
+              )}
+              <button
+                onClick={() => setShowChat(!showChat)}
+                className={`p-2 rounded-xl transition cursor-pointer ${showChat ? "bg-white/20 text-white" : "bg-white/10 hover:bg-white/20 text-zinc-400"}`}
+                title="Toggle AI Chat"
+              >
+                <MessageSquare size={18} />
+              </button>
+              <button
+                onClick={() => setShowCode(!showCode)}
+                className={`p-2 rounded-xl transition cursor-pointer ${showCode ? "bg-white/20 text-white" : "bg-white/10 hover:bg-white/20 text-zinc-400"}`}
+                title="Toggle Code Editor"
+              >
+                <Code2 size={18} />
+              </button>
+              <button
+                onClick={() => setShowFullPreview(true)}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-400 cursor-pointer"
+                title="Full Screen Preview"
+              >
+                <Monitor size={18} />
               </button>
             </div>
-            <Editor
-              theme="vs-dark"
-              value={code}
-              language="html"
-              onChange={(v) => setCode(v)}
-            />
-          </motion.div>
-        )}
+          </div>
 
+          <iframe
+            ref={iframeRef}
+            className="flex-1 w-full bg-white relative z-0 border-none"
+            sandbox="allow-scripts allow-forms allow-same-origin"
+            title={website.title}
+          />
+        </main>
+      </div>
+
+      {/* Full Preview Modal */}
+      <AnimatePresence>
         {showFullPreview && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -337,30 +518,17 @@ const WebsiteEditor = () => {
             className="fixed inset-0 bg-black z-[9999]"
           >
             <iframe
-              className="w-full h-full bg-white"
+              className="w-full h-full bg-white border-none"
               srcDoc={code}
               sandbox="allow-scripts allow-forms allow-same-origin"
               title="Full Preview"
             />
             <button
               onClick={() => setShowFullPreview(false)}
-              className="absolute top-4 right-4 p-2 bg-black/70 rounded-lg"
+              className="absolute top-4 right-4 p-2 bg-black/70 rounded-lg text-white cursor-pointer hover:bg-black"
             >
               <X size={18} />
             </button>
-          </motion.div>
-        )}
-
-        {showChat && (
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            className="fixed inset-0 z-[9999] flex flex-col bg-black"
-          >
-            <Header />
-            <MessagesArea />
-            <InputArea />
           </motion.div>
         )}
       </AnimatePresence>

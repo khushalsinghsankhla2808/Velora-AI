@@ -7,6 +7,9 @@ import { User } from "../models/userModel.js";
 import { CreditTransaction } from "../models/creditTransactionModel.js";
 import { sendError, sendSuccess } from "../utils/apiResponse.js";
 import { isValidObjectId, parsePagination, validateText } from "../utils/validation.js";
+import { ensureWebsiteFiles, bundleHTML, saveWebsiteFiles, getLanguageFromPath } from "../utils/migrationHelper.js";
+import { FileModel } from "../models/fileModel.js";
+import { Chat } from "../models/chatModel.js";
 
 const GENERATE_COST = 10;
 const UPDATE_COST = 5;
@@ -91,7 +94,7 @@ export const generateWebsite = async (req, res) => {
 
         const masterPrompt = `
 YOU ARE A PRINCIPAL FRONTEND ARCHITECT AND SENIOR UI/UX ENGINEER.
-BUILD A HIGH-END PRODUCTION-GRADE WEBSITE USING ONLY HTML, CSS, AND JAVASCRIPT IN A SINGLE FILE.
+BUILD A HIGH-END PRODUCTION-GRADE WEBSITE. YOU MUST DELIVER MULTIPLE MODULAR FILES AS A PROJECT STRUCTURE (E.G., index.html, style.css, script.js).
 
 USER REQUIREMENT: ${prompt}
 
@@ -99,7 +102,8 @@ CODE STYLE REQUIREMENT:
 ${langInstructions || "Use clean semantic HTML5, vanilla CSS3, and vanilla JavaScript ES6+."}
 
 STRICT TECHNICAL RULES:
-- ONE single HTML file with inline <style> and <script> tags only
+- Deliver modular, clean code separated into logical files (e.g. index.html, style.css, script.js).
+- index.html must load the style.css stylesheet via a link tag and script.js script via a script tag.
 - Fully responsive: mobile (<768px), tablet (768–1024px), desktop (>1024px)
 - Mobile-first CSS, CSS Grid/Flexbox, relative units, media queries
 - SPA with JavaScript navigation — Home, About, Services, Contact sections
@@ -121,7 +125,14 @@ QUALITY RULES:
 - No broken layouts at any viewport size
 
 OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS. NO EXPLANATION:
-{"message":"Short professional confirmation message","code":"<FULL VALID HTML DOCUMENT>"}
+{
+  "message": "Short professional confirmation message",
+  "files": [
+    { "path": "index.html", "content": "<FULL VALID HTML DOCUMENT LINKING TO style.css AND script.js>" },
+    { "path": "style.css", "content": "<CSS CONTENT>" },
+    { "path": "script.js", "content": "<JS CONTENT>" }
+  ]
+}
 
 IF YOU RETURN ANYTHING OTHER THAN RAW JSON → RESPONSE IS INVALID.
 `;
@@ -133,30 +144,34 @@ IF YOU RETURN ANYTHING OTHER THAN RAW JSON → RESPONSE IS INVALID.
                 prompt: currentPrompt,
                 model: process.env.AI_PRIMARY_MODEL || "deepseek/deepseek-r1",
                 providerName: "DeepSeek",
-                systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
+                systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
             });
             console.log(`Tokens used: ${result.tokensUsed}`);
             if (result.success) {
                 parsed = extractJson(result.content);
-                if (parsed && parsed.code) break;
+                if (parsed && parsed.files) break;
             }
         }
 
-        if (!parsed || !parsed.code) {
+        if (!parsed || !parsed.files) {
             await User.findByIdAndUpdate(req.user._id, { $inc: { credits: GENERATE_COST } });
             creditsReserved = false;
             return sendError(res, "INVALID_AI_RESPONSE", "AI returned an invalid response. Please try again.", 400);
         }
 
-        const website = await Website.create({
+        const website = new Website({
             user: user._id,
             title: prompt.slice(0, 60),
-            latestCode: parsed.code,
             conversation: [
                 { role: "user", content: prompt },
                 { role: "ai", content: parsed.message },
             ],
         });
+
+        const fileIds = await saveWebsiteFiles(website._id, parsed.files);
+        website.files = fileIds;
+        website.latestCode = bundleHTML(parsed.files);
+        await website.save();
 
         await CreditTransaction.create({
             user: user._id,
@@ -187,8 +202,9 @@ IF YOU RETURN ANYTHING OTHER THAN RAW JSON → RESPONSE IS INVALID.
 export const getWebsiteById = async (req, res) => {
     try {
         const id = req.params.id;
-        const website = await Website.findOne({ _id: id, user: req.user._id }).lean();
+        const website = await Website.findOne({ _id: id, user: req.user._id }).populate("files").lean();
         if (!website) return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+        ensureWebsiteFiles(website);
         return sendSuccess(res, { website });
     } catch (error) {
         console.error("getWebsiteById error:", error.message);
@@ -212,7 +228,7 @@ export const changeWebsite = async (req, res) => {
 
         const langInstructions = CODE_PREFERENCE_INSTRUCTIONS[codePreference] || "";
 
-        const website = await Website.findOne({ _id: id, user: req.user._id });
+        const website = await Website.findOne({ _id: id, user: req.user._id }).populate("files");
         if (!website) return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
 
         const user = await User.findOneAndUpdate(
@@ -224,11 +240,18 @@ export const changeWebsite = async (req, res) => {
         if (!user) return sendError(res, "INSUFFICIENT_CREDITS", "Not enough credits. Minimum 5 credits required.", 400);
         creditsReserved = true;
 
+        let filesData = [];
+        if (website.files && website.files.length > 0) {
+            filesData = website.files.map(f => ({ path: f.path, content: f.content }));
+        } else {
+            filesData = [{ path: "index.html", content: website.latestCode || "" }];
+        }
+
         const updatePrompt = `
 UPDATE THIS EXISTING WEBSITE BASED ON THE USER REQUEST BELOW.
 
-CURRENT HTML CODE:
-${website.latestCode}
+CURRENT CODEBASE FILES:
+${JSON.stringify(filesData, null, 2)}
 
 USER REQUEST:
 ${prompt}
@@ -236,43 +259,53 @@ ${prompt}
 CODE STYLE: ${langInstructions || "Keep existing code style"}
 
 STRICT RULES:
-- Return the COMPLETE updated HTML file (not just changed parts)
+- Return the COMPLETE updated list of files (not just changed parts)
 - Keep all existing sections unless explicitly asked to remove
 - Maintain responsive structure and navigation
 - Use only HTTPS URLs for ALL resources/images
 - Apply the requested changes precisely
 
 OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
-{"message":"Short confirmation of what was changed","code":"<FULL UPDATED HTML DOCUMENT>"}
+{
+  "message": "Short confirmation of what was changed",
+  "files": [
+    { "path": "index.html", "content": "<UPDATED CONTENT>" },
+    { "path": "style.css", "content": "<UPDATED CONTENT>" },
+    { "path": "script.js", "content": "<UPDATED CONTENT>" }
+  ]
+}
 `;
 
         let parsed = null;
         for (let attempt = 0; attempt < 2; attempt++) {
-            const currentPrompt = attempt === 0 ? updatePrompt : updatePrompt + "\n\nRETURN ONLY RAW JSON.";
+            const currentPrompt = attempt === 0 ? updatePrompt : updatePrompt + "\n\nRETURN ONLY RAW JSON. The JSON must contain a files array.";
             const result = await callOpenRouter({
                 prompt: currentPrompt,
                 model: process.env.AI_PRIMARY_MODEL || "deepseek/deepseek-r1",
                 providerName: "DeepSeek",
-                systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
+                systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
             });
             console.log(`Tokens used: ${result.tokensUsed}`);
             if (result.success) {
                 parsed = extractJson(result.content);
-                if (parsed && parsed.code) break;
+                if (parsed && parsed.files) break;
             }
         }
 
-        if (!parsed || !parsed.code) {
+        if (!parsed || !parsed.files) {
             await User.findByIdAndUpdate(req.user._id, { $inc: { credits: UPDATE_COST } });
             creditsReserved = false;
             return sendError(res, "INVALID_AI_RESPONSE", "AI returned an invalid response. Please try again.", 400);
         }
 
+        const fileIds = await saveWebsiteFiles(website._id, parsed.files);
+        website.files = fileIds;
+        website.latestCode = bundleHTML(parsed.files);
+
         website.conversation.push(
             { role: "user", content: prompt },
             { role: "ai", content: parsed.message }
         );
-        website.latestCode = parsed.code;
         await website.save();
 
         await CreditTransaction.create({
@@ -286,7 +319,7 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
         });
         creditsReserved = false;
 
-        return sendSuccess(res, { message: parsed.message, code: parsed.code, remainingCredits: user.credits });
+        return sendSuccess(res, { message: parsed.message, code: website.latestCode, remainingCredits: user.credits });
 
     } catch (error) {
         if (creditsReserved) {
@@ -347,11 +380,481 @@ export const getBySlug = async (req, res) => {
         if (!slugValidation.valid || !/^[a-z0-9-]+$/.test(slugValidation.value)) {
             return sendError(res, "INVALID_SLUG", "Invalid site slug", 400);
         }
-        const website = await Website.findOne({ slug: slugValidation.value, deployed: true }).lean();
+        const website = await Website.findOne({ slug: slugValidation.value, deployed: true }).populate("files").lean();
         if (!website) return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+        ensureWebsiteFiles(website);
         return sendSuccess(res, { website });
     } catch (error) {
         console.error("getBySlug error:", error.message);
         return sendError(res, "WEBSITE_FETCH_FAILED", "Server error", 500);
     }
+};
+
+// Helper to migrate legacy project to multi-file DB representation
+const migrateLegacyProjectToDB = async (website) => {
+  if (!website.files || website.files.length === 0) {
+    const legacyFile = await FileModel.create({
+      projectId: website._id,
+      path: "index.html",
+      content: website.latestCode || "",
+      language: "html"
+    });
+    website.files = [legacyFile._id];
+    await website.save();
+  }
+};
+
+export const listProjectFiles = async (req, res) => {
+  try {
+    const { projectId } = req.body;
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    const files = await FileModel.find({ projectId }).lean();
+    if (files.length === 0) {
+      // Simulate files array
+      return sendSuccess(res, {
+        files: [{
+          _id: "legacy",
+          projectId,
+          path: "index.html",
+          content: website.latestCode || "",
+          language: "html",
+          createdAt: website.createdAt,
+          updatedAt: website.updatedAt,
+        }]
+      });
+    }
+
+    return sendSuccess(res, { files });
+  } catch (error) {
+    console.error("listProjectFiles error:", error.message);
+    return sendError(res, "FILES_FETCH_FAILED", "Server error listing files", 500);
+  }
+};
+
+export const getSingleFile = async (req, res) => {
+  try {
+    const { projectId, fileId } = req.body;
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    if (fileId === "legacy") {
+      return sendSuccess(res, {
+        file: {
+          _id: "legacy",
+          projectId,
+          path: "index.html",
+          content: website.latestCode || "",
+          language: "html",
+          createdAt: website.createdAt,
+          updatedAt: website.updatedAt,
+        }
+      });
+    }
+
+    const file = await FileModel.findOne({ _id: fileId, projectId }).lean();
+    if (!file) {
+      return sendError(res, "FILE_NOT_FOUND", "File not found", 404);
+    }
+
+    return sendSuccess(res, { file });
+  } catch (error) {
+    console.error("getSingleFile error:", error.message);
+    return sendError(res, "FILE_FETCH_FAILED", "Server error retrieving file", 500);
+  }
+};
+
+export const createProjectFile = async (req, res) => {
+  try {
+    const { projectId, path, content, language } = req.body;
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    await migrateLegacyProjectToDB(website);
+
+    const existing = await FileModel.findOne({ projectId, path });
+    if (existing) {
+      return sendError(res, "FILE_ALREADY_EXISTS", "File path already exists in project", 409);
+    }
+
+    const fileLang = language || getLanguageFromPath(path);
+    const file = await FileModel.create({
+      projectId,
+      path,
+      content: content || "",
+      language: fileLang
+    });
+
+    website.files.push(file._id);
+    const allFiles = await FileModel.find({ projectId });
+    website.latestCode = bundleHTML(allFiles);
+    await website.save();
+
+    return sendSuccess(res, { file }, 201);
+  } catch (error) {
+    console.error("createProjectFile error:", error.message);
+    return sendError(res, "FILE_CREATE_FAILED", "Server error creating file", 500);
+  }
+};
+
+export const updateProjectFile = async (req, res) => {
+  try {
+    const { projectId, fileId, content } = req.body;
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    await migrateLegacyProjectToDB(website);
+
+    let file;
+    if (fileId === "legacy") {
+      file = await FileModel.findOne({ projectId, path: "index.html" });
+    } else {
+      file = await FileModel.findOne({ _id: fileId, projectId });
+    }
+
+    if (!file) {
+      return sendError(res, "FILE_NOT_FOUND", "File not found", 404);
+    }
+
+    file.content = content;
+    await file.save();
+
+    const allFiles = await FileModel.find({ projectId });
+    website.latestCode = bundleHTML(allFiles);
+    await website.save();
+
+    return sendSuccess(res, { file });
+  } catch (error) {
+    console.error("updateProjectFile error:", error.message);
+    return sendError(res, "FILE_UPDATE_FAILED", "Server error updating file", 500);
+  }
+};
+
+export const renameProjectFile = async (req, res) => {
+  try {
+    const { projectId, fileId, newPath } = req.body;
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    await migrateLegacyProjectToDB(website);
+
+    let file;
+    if (fileId === "legacy") {
+      file = await FileModel.findOne({ projectId, path: "index.html" });
+    } else {
+      file = await FileModel.findOne({ _id: fileId, projectId });
+    }
+
+    if (!file) {
+      return sendError(res, "FILE_NOT_FOUND", "File not found", 404);
+    }
+
+    // Check if newPath already exists
+    const existing = await FileModel.findOne({ projectId, path: newPath });
+    if (existing) {
+      return sendError(res, "FILE_ALREADY_EXISTS", "New path already exists in project", 409);
+    }
+
+    file.path = newPath;
+    file.language = getLanguageFromPath(newPath);
+    await file.save();
+
+    const allFiles = await FileModel.find({ projectId });
+    website.latestCode = bundleHTML(allFiles);
+    await website.save();
+
+    return sendSuccess(res, { file });
+  } catch (error) {
+    console.error("renameProjectFile error:", error.message);
+    return sendError(res, "FILE_RENAME_FAILED", "Server error renaming file", 500);
+  }
+};
+
+export const deleteProjectFile = async (req, res) => {
+  try {
+    const { projectId, fileId } = req.body;
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    await migrateLegacyProjectToDB(website);
+
+    let file;
+    if (fileId === "legacy") {
+      file = await FileModel.findOne({ projectId, path: "index.html" });
+    } else {
+      file = await FileModel.findOne({ _id: fileId, projectId });
+    }
+
+    if (!file) {
+      return sendError(res, "FILE_NOT_FOUND", "File not found", 404);
+    }
+
+    await FileModel.deleteOne({ _id: file._id });
+
+    website.files = website.files.filter(id => id.toString() !== file._id.toString());
+    const allFiles = await FileModel.find({ projectId });
+    website.latestCode = bundleHTML(allFiles);
+    await website.save();
+
+    return sendSuccess(res, { message: "File deleted successfully" });
+  } catch (error) {
+    console.error("deleteProjectFile error:", error.message);
+    return sendError(res, "FILE_DELETE_FAILED", "Server error deleting file", 500);
+  }
+};
+
+export const createProjectFolder = async (req, res) => {
+  try {
+    const { projectId, path } = req.body;
+    const website = await Website.findOne({ _id: projectId, user: req.user._id });
+    if (!website) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    await migrateLegacyProjectToDB(website);
+
+    const keepFilePath = `${path}/.keep`;
+    const existing = await FileModel.findOne({ projectId, path: keepFilePath });
+    if (existing) {
+      return sendError(res, "FOLDER_ALREADY_EXISTS", "Folder already exists", 409);
+    }
+
+    const file = await FileModel.create({
+      projectId,
+      path: keepFilePath,
+      content: "",
+      language: "plaintext"
+    });
+
+    website.files.push(file._id);
+    await website.save();
+
+    return sendSuccess(res, { folder: { path } }, 201);
+  } catch (error) {
+    console.error("createProjectFolder error:", error.message);
+    return sendError(res, "FOLDER_CREATE_FAILED", "Server error creating folder", 500);
+  }
+};
+
+// ─── AI Chat Targeted Edit ──────────────────────────────────────────────────
+export const targetedChatEdit = async (req, res) => {
+  let creditsReserved = false;
+  const CHAT_COST = 2;
+
+  try {
+    const { projectId, instruction } = req.body;
+
+    const website = await Website.findById(projectId);
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+    }
+    if (website.user.toString() !== req.user._id.toString()) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    const user = await User.findOneAndUpdate(
+      { _id: req.user._id, credits: { $gte: CHAT_COST } },
+      { $inc: { credits: -CHAT_COST } },
+      { new: true }
+    );
+
+    if (!user) {
+      return sendError(res, "INSUFFICIENT_CREDITS", "Not enough credits. Minimum 2 credits required.", 402);
+    }
+    creditsReserved = true;
+
+    await migrateLegacyProjectToDB(website);
+
+    const currentFiles = await FileModel.find({ projectId });
+    const filesData = currentFiles.map((f) => ({ path: f.path, content: f.content }));
+
+    const chatPrompt = `
+You are a senior frontend engineer assisting with targeted website modifications.
+The user wants to modify an existing website.
+
+Here are the current files in the workspace:
+${JSON.stringify(filesData, null, 2)}
+
+User Instruction:
+${instruction}
+
+STRICT TECHNICAL RULES:
+1. ONLY return files that are newly created or modified to satisfy the user's instruction.
+2. DO NOT return unchanged files.
+3. DO NOT return empty files, placeholders, or code snippets (e.g. "// rest of the file..."). Deliver the COMPLETE content of the modified/created files.
+4. If a file is NOT modified, do not list it in the output at all.
+5. All references, links, and styling changes must be functional. Use only HTTPS URLs for external resources.
+6. Path formats must not contain path traversal (e.g. "..") or start with "/" or "\\".
+
+OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
+{
+  "message": "A summary of what changes were made",
+  "files": [
+    { "path": "path/to/file.js", "content": "<COMPLETE REPLACING CONTENT>" }
+  ]
+}
+
+If you do not need to modify any files, return an empty "files" array.
+`;
+
+    let parsed = null;
+    let result = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const currentPrompt = attempt === 0 ? chatPrompt : chatPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. NO MARKDOWN. NO BACKTICKS.";
+      result = await callOpenRouter({
+        prompt: currentPrompt,
+        model: process.env.AI_PRIMARY_MODEL || "deepseek/deepseek-r1",
+        providerName: "DeepSeek",
+        systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
+      });
+      console.log(`Tokens used: ${result.tokensUsed}`);
+      if (result.success) {
+        parsed = extractJson(result.content);
+        if (parsed && parsed.files) break;
+      }
+    }
+
+    if (!parsed || !parsed.files) {
+      await User.findByIdAndUpdate(req.user._id, { $inc: { credits: CHAT_COST } });
+      creditsReserved = false;
+      return sendError(res, "INVALID_AI_RESPONSE", "AI returned an invalid response. Please try again.", 400);
+    }
+
+    // Path traversal and validation check
+    for (const file of parsed.files) {
+      if (!file.path || typeof file.path !== "string") {
+        await User.findByIdAndUpdate(req.user._id, { $inc: { credits: CHAT_COST } });
+        creditsReserved = false;
+        return sendError(res, "INVALID_FILE_PATH", "Invalid file path in AI response", 400);
+      }
+      const cleanPath = file.path.trim();
+      if (cleanPath.includes("..") || cleanPath.startsWith("/") || cleanPath.startsWith("\\")) {
+        await User.findByIdAndUpdate(req.user._id, { $inc: { credits: CHAT_COST } });
+        creditsReserved = false;
+        return sendError(res, "PATH_TRAVERSAL_DETECTED", "Path traversal or absolute path detected", 400);
+      }
+    }
+
+    const filesChangedPaths = [];
+    for (const responseFile of parsed.files) {
+      const filePath = responseFile.path;
+      const fileContent = responseFile.content || "";
+      const fileLanguage = getLanguageFromPath(filePath);
+
+      let dbFile = await FileModel.findOne({ projectId, path: filePath });
+      if (dbFile) {
+        dbFile.content = fileContent;
+        dbFile.language = fileLanguage;
+        await dbFile.save();
+      } else {
+        dbFile = await FileModel.create({
+          projectId,
+          path: filePath,
+          content: fileContent,
+          language: fileLanguage,
+        });
+        website.files.push(dbFile._id);
+      }
+      filesChangedPaths.push(filePath);
+    }
+
+    const updatedFiles = await FileModel.find({ projectId });
+    website.latestCode = bundleHTML(updatedFiles);
+    await website.save();
+
+    // Log chat messages
+    await Chat.create({
+      projectId,
+      userId: req.user._id,
+      role: "user",
+      message: instruction,
+    });
+
+    const assistantChat = await Chat.create({
+      projectId,
+      userId: req.user._id,
+      role: "assistant",
+      message: parsed.message || "I have updated the files according to your request.",
+      filesChanged: filesChangedPaths,
+      tokensUsed: (result && result.tokensUsed) || 0,
+    });
+
+    await CreditTransaction.create({
+      user: req.user._id,
+      type: "debit",
+      amount: CHAT_COST,
+      balanceAfter: user.credits,
+      reason: "website_chat",
+      description: `Targeted edit via chat: ${instruction.slice(0, 60)}`,
+      referenceId: website._id.toString(),
+    });
+    creditsReserved = false;
+
+    return sendSuccess(res, {
+      message: parsed.message,
+      filesChanged: filesChangedPaths,
+      latestCode: website.latestCode,
+      remainingCredits: user.credits,
+      chat: assistantChat,
+    });
+
+  } catch (error) {
+    if (creditsReserved) {
+      await User.findByIdAndUpdate(req.user._id, { $inc: { credits: CHAT_COST } });
+    }
+    console.error("targetedChatEdit error:", error.message);
+    if (error.code === "AI_UNAVAILABLE") {
+      return sendError(res, "AI_UNAVAILABLE", error.message, 503);
+    }
+    return sendError(res, "CHAT_EDIT_FAILED", "Server error during chat edit", 500);
+  }
+};
+
+// ─── Get Chat History ────────────────────────────────────────────────────────
+export const getChatHistory = async (req, res) => {
+  try {
+    const { projectId, before } = req.body;
+
+    const website = await Website.findById(projectId);
+    if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
+    }
+    if (website.user.toString() !== req.user._id.toString()) {
+      return sendError(res, "ACCESS_DENIED", "You do not own this project", 403);
+    }
+
+    const filter = { projectId };
+    if (before) {
+      filter.createdAt = { $lt: new Date(before) };
+    }
+
+    const limit = 50;
+    const messages = await Chat.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    messages.reverse();
+
+    return sendSuccess(res, {
+      messages,
+      hasMore: messages.length === limit,
+    });
+  } catch (error) {
+    console.error("getChatHistory error:", error.message);
+    return sendError(res, "CHAT_HISTORY_FAILED", "Server error retrieving chat history", 500);
+  }
 };

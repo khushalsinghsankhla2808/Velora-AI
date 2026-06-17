@@ -65,7 +65,7 @@ describe("AI Fallback Model Integration Tests", () => {
           choices: [
             {
               message: {
-                content: JSON.stringify({ message: "Generated successfully", code: "<html>Primary</html>" }),
+                content: JSON.stringify({ message: "Generated successfully", files: [{ path: "index.html", content: "<html>Primary</html>" }] }),
               },
             },
           ],
@@ -78,7 +78,7 @@ describe("AI Fallback Model Integration Tests", () => {
 
     assert.ok(result);
     const parsed = JSON.parse(result);
-    assert.strictEqual(parsed.code, "<html>Primary</html>");
+    assert.strictEqual(parsed.files[0].content, "<html>Primary</html>");
     assert.strictEqual(fetchMockCalls.length, 1);
     assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
   });
@@ -92,7 +92,7 @@ describe("AI Fallback Model Integration Tests", () => {
           choices: [
             {
               message: {
-                content: JSON.stringify({ message: "Generated with fallback", code: "<h1>Fallback</h1>" }),
+                content: JSON.stringify({ message: "Generated with fallback", files: [{ path: "index.html", content: "<h1>Fallback</h1>" }] }),
               },
             },
           ],
@@ -105,7 +105,7 @@ describe("AI Fallback Model Integration Tests", () => {
 
     assert.ok(result);
     const parsed = JSON.parse(result);
-    assert.strictEqual(parsed.code, "<h1>Fallback</h1>");
+    assert.strictEqual(parsed.files[0].content, "<h1>Fallback</h1>");
     assert.strictEqual(fetchMockCalls.length, 2);
     assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
     assert.strictEqual(fetchMockCalls[1].model, "google/gemini-2.5-flash");
@@ -131,7 +131,7 @@ describe("AI Fallback Model Integration Tests", () => {
           choices: [
             {
               message: {
-                content: JSON.stringify({ message: "Generated with fallback", code: "<h1>Fallback JSON</h1>" }),
+                content: JSON.stringify({ message: "Generated with fallback", files: [{ path: "index.html", content: "<h1>Fallback JSON</h1>" }] }),
               },
             },
           ],
@@ -144,7 +144,7 @@ describe("AI Fallback Model Integration Tests", () => {
 
     assert.ok(result);
     const parsed = JSON.parse(result);
-    assert.strictEqual(parsed.code, "<h1>Fallback JSON</h1>");
+    assert.strictEqual(parsed.files[0].content, "<h1>Fallback JSON</h1>");
     assert.strictEqual(fetchMockCalls.length, 2);
     assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
     assert.strictEqual(fetchMockCalls[1].model, "google/gemini-2.5-flash");

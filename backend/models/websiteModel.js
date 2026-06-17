@@ -14,6 +14,7 @@ const websiteSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     title: { type: String, default: "Untitled Website" },
     latestCode: String,
+    files: [{ type: mongoose.Schema.Types.ObjectId, ref: "File" }],
     conversation: [messageSchema],
     deployed: { type: Boolean, default: false },
     deployUrl: String,
