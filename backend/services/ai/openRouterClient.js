@@ -1,5 +1,9 @@
 // PATH: backend/services/ai/openRouterClient.js
 
+if (!process.env.OPENROUTER_API_KEY) {
+  throw new Error("[openRouterClient] OPENROUTER_API_KEY is not set in environment variables.");
+}
+
 const DEFAULT_TIMEOUT_MS = 90000;
 const MAX_ATTEMPTS = 2;
 

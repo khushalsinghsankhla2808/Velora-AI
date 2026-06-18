@@ -438,14 +438,12 @@ const migrateLegacyProjectToDB = async (website) => {
 export const listProjectFiles = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const website = await Website.findOne({
-      _id: projectId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(projectId);
     if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role) {
       return sendError(res, "ACCESS_DENIED", "You do not have access to this project", 403);
     }
 
@@ -475,14 +473,12 @@ export const listProjectFiles = async (req, res) => {
 export const getSingleFile = async (req, res) => {
   try {
     const { projectId, fileId } = req.params;
-    const website = await Website.findOne({
-      _id: projectId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(projectId);
     if (!website) {
+      return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
+    }
+    const role = getProjectRole(website, req.user._id);
+    if (!role) {
       return sendError(res, "ACCESS_DENIED", "You do not have access to this project", 403);
     }
 
@@ -516,13 +512,7 @@ export const createProjectFile = async (req, res) => {
   try {
     const { projectId } = req.params;
     const { path, content, language } = req.body;
-    const website = await Website.findOne({
-      _id: projectId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(projectId);
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
     }
@@ -562,13 +552,7 @@ export const updateProjectFile = async (req, res) => {
   try {
     const { projectId, fileId } = req.params;
     const { content } = req.body;
-    const website = await Website.findOne({
-      _id: projectId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(projectId);
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
     }
@@ -608,13 +592,7 @@ export const renameProjectFile = async (req, res) => {
   try {
     const { projectId, fileId } = req.params;
     const { newPath } = req.body;
-    const website = await Website.findOne({
-      _id: projectId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(projectId);
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
     }
@@ -660,13 +638,7 @@ export const renameProjectFile = async (req, res) => {
 export const deleteProjectFile = async (req, res) => {
   try {
     const { projectId, fileId } = req.params;
-    const website = await Website.findOne({
-      _id: projectId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(projectId);
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
     }
@@ -706,13 +678,7 @@ export const createProjectFolder = async (req, res) => {
   try {
     const { projectId } = req.params;
     const { path } = req.body;
-    const website = await Website.findOne({
-      _id: projectId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(projectId);
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Project not found", 404);
     }
@@ -755,13 +721,7 @@ export const targetedChatEdit = async (req, res) => {
     const { projectId } = req.params;
     const { instruction } = req.body;
 
-    const website = await Website.findOne({
-      _id: projectId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(projectId);
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }
@@ -939,13 +899,7 @@ export const exportWebsite = async (req, res) => {
     const websiteId = req.params.id;
     const exportType = req.query.exportType || "html";
 
-    const website = await Website.findOne({
-      _id: websiteId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(websiteId);
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }
@@ -1010,13 +964,7 @@ export const exportToGithub = async (req, res) => {
     const websiteId = req.params.id;
     const { githubToken, repoName, isPrivate, exportType = "html" } = req.body;
 
-    const website = await Website.findOne({
-      _id: websiteId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(websiteId);
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }
@@ -1134,13 +1082,7 @@ export const acceptChatEdit = async (req, res) => {
   try {
     const { projectId, instruction, message, tokensUsed, files } = req.body;
 
-    const website = await Website.findOne({
-      _id: projectId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(projectId);
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }
@@ -1240,13 +1182,7 @@ export const undoChatEdit = async (req, res) => {
   try {
     const { projectId } = req.params;
 
-    const website = await Website.findOne({
-      _id: projectId,
-      $or: [
-        { user: req.user._id },
-        { "members.user": req.user._id }
-      ]
-    });
+    const website = await Website.findById(projectId);
     if (!website) {
       return sendError(res, "WEBSITE_NOT_FOUND", "Website not found", 404);
     }

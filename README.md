@@ -429,7 +429,7 @@ Velora AI is under active development. Planned, scoped expansions — implemente
 - [x] AI Chat for targeted, file-scoped edits (rather than full regeneration)
 - [x] Export project as a downloadable ZIP
 - [x] Responsive preview toggle (Desktop / Tablet / Mobile)
-- [ ] GitHub export
+- [x] GitHub export
 - [x] Diff preview + one-step undo for AI chat edits
 
 Deliberately **out of scope** for the near term: additional output frameworks beyond HTML/CSS/JS, automated Vercel/Netlify deploy integration, and real-time collaboration. These are large efforts in their own right and will only be pursued based on real user demand.
