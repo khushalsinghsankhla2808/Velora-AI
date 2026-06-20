@@ -17,7 +17,7 @@
 ![Frontend](https://img.shields.io/badge/Frontend-React%2019-61DAFB?style=flat-square&logo=react)
 ![Backend](https://img.shields.io/badge/Backend-Node.js-339933?style=flat-square&logo=node.js)
 ![Database](https://img.shields.io/badge/Database-MongoDB-47A248?style=flat-square&logo=mongodb)
-![AI](https://img.shields.io/badge/AI-DeepSeek%20%2B%20Gemini%20Fallback-7c3aed?style=flat-square)
+![AI](https://img.shields.io/badge/AI-Multi--Model%20Routing%20%26%20Fallback-7c3aed?style=flat-square)
 
 </div>
 
@@ -487,7 +487,7 @@ git push origin feature/AmazingFeature
 
 [![GitHub](https://img.shields.io/badge/GitHub-khushalsinghsankhla2808-181717?style=for-the-badge&logo=github)](https://github.com/khushalsinghsankhla2808)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Khushal_Singh_Sankhla-0077B5?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/khushal-singh-sankhla/)
-[![Email](https://img.shields.io/badge/Email-Contact-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:khushalsinghsankhla203@gmail.com)
+[![Email](https://img.shields.io/badge/Email-Contact-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:khushalsankhla2808@gmail.com)
 
 ---
 
