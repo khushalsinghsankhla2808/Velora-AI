@@ -80,6 +80,15 @@ Unlike traditional drag-and-drop builders, Velora AI explores **autonomous websi
 | 🖥️ Monaco Code Editor | View, edit, and save files directly using a full-fledged VS Code-style editor |
 | 📦 Dashboard Management | Manage all your generated websites from a unified dashboard |
 | 🎨 Modern Dark UI | Sleek dark design with smooth Framer Motion animations throughout |
+| 🧠 Stack Analyzer | Analyze project prompts to suggest the ideal frontend/backend framework, databases, directory structures, and optimization paths |
+| ⏱️ Version Snapshots | Save snapshots of the project with a label and description, and restore any previous version with one click |
+| 🐙 Direct GitHub Export | Connect your GitHub account with a PAT to automatically create repository (public/private) and commit files directly |
+| 👥 Team Collaboration | Seamless project workspace sharing with role-based access control (Owner, Editor, Viewer) |
+| 🩺 AI Debugger & Repair | Automatically capture preview runtime exceptions, feed logs to the AI, and review proposed code fixes side-by-side |
+| 📈 Compliance Auditing | Run automated audits evaluating SEO, accessibility (a11y), performance, and UX, with detailed actionable fixes |
+| 🎨 AI Brand Kit Generator | Prompt the AI to generate a matching color palette, typography scale, border radii, and logo motifs, automatically injecting styling variables |
+| 🏪 Component Marketplace | Share custom HTML components with other users and import components from the marketplace directly into projects |
+| 🔱 Project Forking | Clone existing projects to iterate on new feature branches or design mockups independently |
 
 ---
 
@@ -100,9 +109,17 @@ Unlike traditional drag-and-drop builders, Velora AI explores **autonomous websi
 ![Mongoose](https://img.shields.io/badge/Mongoose-880000?style=flat-square&logo=mongoose&logoColor=white)
 
 ### AI Layer
-![OpenRouter](https://img.shields.io/badge/OpenRouter_API-7c3aed?style=flat-square)
-![DeepSeek](https://img.shields.io/badge/DeepSeek-0ea5e9?style=flat-square)
-![Gemini](https://img.shields.io/badge/Gemini_2.5_Pro_(Fallback)-4285F4?style=flat-square&logo=google&logoColor=white)
+- **Multi-Provider Factory Routing**: Integrates directly with multiple state-of-the-art models via OpenRouter:
+  - ![DeepSeek](https://img.shields.io/badge/DeepSeek--R1-0ea5e9?style=flat-square)
+  - ![Gemini](https://img.shields.io/badge/Gemini_2.0--Flash_/_2.5--Pro-4285F4?style=flat-square&logo=google&logoColor=white)
+  - ![Anthropic](https://img.shields.io/badge/Anthropic_Claude-D97706?style=flat-square&logo=anthropic&logoColor=white)
+  - ![Llama](https://img.shields.io/badge/Meta_Llama--4-044F8C?style=flat-square&logo=meta&logoColor=white)
+  - ![Mistral](https://img.shields.io/badge/Mistral_Small-FD5C63?style=flat-square&logo=mistral&logoColor=white)
+  - ![Kimi](https://img.shields.io/badge/Moonshot_Kimi-000000?style=flat-square)
+  - ![MiniMax](https://img.shields.io/badge/MiniMax-FF6B6B?style=flat-square)
+  - ![Qwen](https://img.shields.io/badge/Alibaba_Qwen--3-551A8B?style=flat-square)
+  - ![OpenAI](https://img.shields.io/badge/OpenAI_GPT--4o-008080?style=flat-square&logo=openai&logoColor=white)
+- **Automatic Fallback Pipeline**: High reliability transparent failover routing between AI providers.
 
 ### Auth & Payments
 ![Firebase](https://img.shields.io/badge/Firebase_OAuth-FFCA28?style=flat-square&logo=firebase&logoColor=black)
@@ -118,56 +135,53 @@ Unlike traditional drag-and-drop builders, Velora AI explores **autonomous websi
 ## 🧠 AI Workflow Architecture
 
 ```
-User Prompt
-      │
-      ▼
-┌─────────────────────────────┐
-│   Prompt Engineering Layer   │  ← Master prompt with design system,
-│                               │     content, accessibility, and SEO
-│                               │     rules + strict JSON output schema
-└───────────────┬───────────────┘
-                │
-                ▼
-┌─────────────────────────────┐
-│   AI Client Service          │  ← backend/services/ai/openRouterClient.js
-│   (Primary: DeepSeek)         │     90s timeout, 2-attempt retry
-└───────────────┬───────────────┘
-                │
-        primary fails after retries
-                │
-                ▼
-┌─────────────────────────────┐
-│   Automatic Fallback         │  ← Switches to google/gemini-2.5-pro
-│   (Gemini 2.5 Pro)            │     transparently, same contract
-└───────────────┬───────────────┘
-                │
-                ▼
-┌─────────────────────────────┐
-│  JSON Validation &           │  ← Strips markdown, extracts JSON,
-│  Extraction Pipeline         │     auto-retries on parse failure
-│  (extractJson.js)             │
-└───────────────┬───────────────┘
-                │
-                ▼
-┌─────────────────────────────┐
-│  HTML/CSS/JS Generation      │  ← Multi-file workspace layout
-│  (Multi-File Workspace)       │     with modular files
-└───────────────┬───────────────┘
-                │
-                ▼
-┌─────────────────────────────┐
-│   MongoDB Storage             │  ← Website, virtual files, and history saved
-└───────────────┬───────────────┘
-                │
-                ▼
-┌─────────────────────────────┐
-│   Live Preview Engine         │  ← Inlines CSS/JS dynamically for preview
-└───────────────┬───────────────┘
-                │
-                ▼
-┌─────────────────────────────┐
-│   Deployment Pipeline         │  ← Slug-based public URL generation
-└─────────────────────────────┘
+                 User Action (Prompt, Edit, Audit, Debug)
+                                  │
+                                  ▼
+                    ┌───────────────────────────┐
+                    │  Prompt Engineering &     │ ← Injects system prompts, WCAG standards,
+                    │  Context Orchestration    │   styling preferences, brand kit metadata
+                    └─────────────┬─────────────┘
+                                  │
+                                  ▼
+                    ┌───────────────────────────┐
+                    │  Provider Factory Router  │ ← backend/services/ai/providerFactory.js
+                    │  (Selects Active Model)   │   (Gemini, DeepSeek, OpenAI, Mistral, etc.)
+                    └─────────────┬─────────────┘
+                                  │
+                                  ├───────────────┐
+                                  ▼ (Success)     ▼ (Primary Fails)
+                    ┌───────────────────────────┐ ┌───────────────────────────┐
+                    │   OpenRouter API Dispatch │ │    Automatic Fallback     │
+                    │   (90s Timeout / Retries) │ │   (google/gemini-2.5-pro) │
+                    └─────────────┬─────────────┘ └─────────────┬─────────────┘
+                                  │                             │
+                                  └──────────────┬──────────────┘
+                                                 │
+                                                 ▼
+                    ┌───────────────────────────┐
+                    │    Extraction & Parser    │ ← Strips markdown, validates JSON structure,
+                    │    (utils/extractJson.js) │   re-queries on syntax exceptions
+                    └─────────────┬─────────────┘
+                                  │
+                                  ▼
+                    ┌───────────────────────────┐
+                    │ Multi-File Workspace sync │ ← Commits/saves virtual file tree updates to DB,
+                    │ (Transaction rollbacks)   │   enabling transactional Undo
+                    └─────────────┬─────────────┘
+                                  │
+                                  ├───────────────────────────────┐
+                                  ▼                               ▼
+                    ┌───────────────────────────┐   ┌───────────────────────────┐
+                    │    Live Preview Engine    │   │   Transpiler & Exporter   │
+                    │  (Bundled sandboxed frame)│   │  (Vite-React/Next.js/ZIP) │
+                    └─────────────┬─────────────┘   └─────────────┬─────────────┘
+                                  │                               │
+                                  ▼                               ▼
+                    ┌───────────────────────────┐   ┌───────────────────────────┐
+                    │    One-Click Deployer     │   │   Direct GitHub Push      │
+                    │  (Slug-based public URL)  │   │  (Octokit sequential flow)│
+                    └───────────────────────────┘   └───────────────────────────┘
 ```
 
 ---
@@ -179,19 +193,25 @@ Velora-AI/
 │
 ├── backend/
 │   ├── config/
-│   │   ├── openRouter.js        # Re-exports the AI client (see services/ai)
+│   │   ├── openRouter.js        # Re-exports the AI client
 │   │   ├── razorpay.js          # Razorpay payment gateway config
 │   │   └── plan.js              # Credit plan definitions
 │   │
 │   ├── services/
 │   │   └── ai/
-│   │       └── openRouterClient.js   # DeepSeek primary + Gemini 2.5 Pro
-│   │                                  fallback, timeout, retry logic
+│   │       ├── providerFactory.js    # AI model selector factory
+│   │       ├── openRouterClient.js   # OpenRouter payload dispatcher & failover logic
+│   │       ├── anthropicProvider.js  # Claude integration
+│   │       ├── deepseekProvider.js   # DeepSeek integration
+│   │       ├── geminiProvider.js     # Gemini integration
+│   │       ├── openaiProvider.js     # GPT integration
+│   │       └── kimiProvider.js       # Kimi/MiniMax/Qwen/Llama/Mistral providers...
 │   │
 │   ├── controllers/
 │   │   ├── authController.js    # Google OAuth + JWT logic
-│   │   ├── websiteController.js # Generation, multi-file CRUD, chat and ZIP export
-│   │   └── paymentController.js # Razorpay order + HMAC signature verification
+│   │   ├── creditController.js  # Credit history endpoint logic
+│   │   ├── websiteController.js # Generation, versions, collaboration, debugging, audits, forking
+│   │   └── paymentController.js # Razorpay order + HMAC verification
 │   │
 │   ├── middlewares/
 │   │   ├── isAuthenticated.js   # JWT cookie verification
@@ -199,18 +219,22 @@ Velora-AI/
 │   │   └── security.js          # Rate limiters for critical endpoints
 │   │
 │   ├── validators/
-│   │   └── websiteValidator.js  # Zod schemas for generate/update/deploy
+│   │   └── websiteValidator.js  # Zod schemas for generate/update/deploy/chat/collaboration
 │   │
 │   ├── models/
 │   │   ├── userModel.js         # User schema (credits, plan)
-│   │   ├── websiteModel.js      # Website metadata and deployment slug
+│   │   ├── websiteModel.js      # Website metadata, brand settings, member schema
 │   │   ├── fileModel.js         # File contents and previousContents for Undo
 │   │   ├── chatModel.js         # Conversation and modified paths history
-│   │   └── paymentModel.js      # Payment tracking schema
+│   │   ├── versionModel.js      # Workspace snapshot backups schema
+│   │   ├── paymentModel.js      # Payment tracking schema
+│   │   ├── creditTransactionModel.js # Ledger database for transaction audits
+│   │   └── marketplaceComponentModel.js # Shared component library template schema
 │   │
 │   ├── routes/
 │   │   ├── authRoutes.js        # /api/auth
-│   │   ├── websiteRoute.js      # /api/website
+│   │   ├── websiteRoute.js      # /api/website (Generation, versions, collaboration, audits)
+│   │   ├── creditRoute.js       # /api/credits (Ledger query)
 │   │   └── paymentRoute.js      # /api/payment
 │   │
 │   ├── utils/
@@ -357,13 +381,14 @@ Test suites cover the AI client fallback behavior and the full Razorpay payment 
 
 ## 💳 Credit System
 
-| Action | Credits |
-|---|---|
-| Sign up | +100 credits (free) |
-| Generate new website | -10 credits |
-| Update existing website | -5 credits |
-| Purchase Pro plan | +500 credits (₹499) |
-| Purchase Enterprise plan | +1000 credits (₹1499) |
+| Action | Credits | Description |
+|---|---|---|
+| Sign up | +100 credits | Welcome credit for new users |
+| Generate new website | -10 credits | Orchestrates full master prompt structure |
+| Update existing website | -5 credits | Full workspace updates |
+| Targeted chat edit | -2 credits | Precise modifications to single files |
+| Purchase Pro plan | +500 credits | ₹499 (Razorpay Payment gateway) |
+| Purchase Enterprise plan | +1000 credits | ₹1499 (Razorpay Payment gateway) |
 
 ---
 
@@ -407,16 +432,16 @@ VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 
 ## 🔥 Core Engineering Concepts
 
-- **Prompt Orchestration** — A structured master prompt enforcing a strict JSON output schema, a real design system (CSS custom properties, fluid typography, spacing scale), genuine industry-specific content instead of placeholder text, accessibility (WCAG 2.1 AA), and SEO metadata on every generation
-- **Resilient AI Layer** — Primary model (DeepSeek) with automatic, transparent fallback to a secondary model (Gemini 2.5 Pro) on timeout or failure, so a single provider outage doesn't take down generation
-- **AI Reliability Engineering** — Auto-retry pipeline on JSON parse failure, with a hard request timeout via `AbortController` so a hung request never blocks a user indefinitely
-- **JSON Extraction Pipeline** — Strips markdown fences, finds JSON boundaries, and safely parses AI responses before they touch the database
-- **Blob URL Rendering** — iframe-safe HTML preview using `URL.createObjectURL`, sandboxed for security
-- **Iterative Regeneration** — Full conversation history maintained per website, enabling targeted follow-up edits
-- **Slug-Based Deployment** — Unique public URLs generated from title + ID suffix
-- **HMAC Payment Verification** — Razorpay signature verified server-side with `crypto`, never trusted from the client
-- **HttpOnly JWT Cookies** — Secure, XSS-resistant authentication
-- **Request Validation & Rate Limiting** — Zod schema validation and per-route rate limits on every public-facing endpoint
+- **Prompt Orchestration** — A structured master prompt enforcing a strict JSON output schema, a real design system (CSS custom properties, fluid typography, spacing scale), genuine industry-specific content instead of placeholder text, accessibility (WCAG 2.1 AA), and SEO metadata on every generation.
+- **Dynamic Multi-Model Routing & Failover** — Modularized provider strategy using a `providerFactory` pattern routing payload prompts to DeepSeek, Gemini, OpenAI, Claude, Llama, Mistral, Kimi, MiniMax, or Qwen, with automatic retry/failover checks.
+- **React/Next.js Scaffolding** — Real-time transpiler converting standard multi-file HTML layouts into structured Vite-React or Next.js directory workspaces complete with Tailwind configurations and routing scripts.
+- **GitHub API Integration** — Seamless Octokit-powered authentication and remote workspace repository commits via sequential Base64 binary pushes.
+- **Workspace Isolation & sandboxed Previewing** — Sandbox secure iframe hosting using relative CSS/JS references resolved via inlined blob bundling.
+- **Transactional Undo History** — Virtual directory versioning tracking changes dynamically per file in Mongo, facilitating instant historical state rollbacks.
+- **Audit Reports & Core Web Vitals** — Fully automated, multi-category Google Lighthouse mock metrics measuring SEO, a11y, performance, and responsive elements with fix instructions.
+- **AI-Powered Brand Kits** — Dynamic style parameterization utilizing AI to generate harmonious styles and color schemes, injecting them as runtime CSS custom properties.
+- **HMAC Payment Audits** — Verification of Razorpay Webhook signatures via node `crypto` hash generation.
+- **Google OAuth & JWT Cookie Security** — Secure HttpOnly cookie auth preventing cross-site scripting (XSS) token extraction.
 
 ---
 
