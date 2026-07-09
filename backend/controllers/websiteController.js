@@ -41,6 +41,8 @@ const CODE_PREFERENCE_INSTRUCTIONS = {
     "animations": "Focus heavily on animations and micro-interactions: CSS keyframe animations, scroll-triggered effects using Intersection Observer, hover transitions (300ms ease), page transitions, loading skeletons, and parallax effects.",
 };
 
+const ALLOWED_CODE_PREFERENCES = new Set(Object.keys(CODE_PREFERENCE_INSTRUCTIONS));
+
 const validateModel = (model) => {
     // Automatically resolve all requests to Gemini 2.5 Flash
     return "google/gemini-2.5-flash";
