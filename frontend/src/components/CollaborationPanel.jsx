@@ -136,7 +136,7 @@ export default function CollaborationPanel({ projectId }) {
               <button
                 type="submit"
                 disabled={addLoading || !email.trim()}
-                className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold px-4 rounded-xl flex items-center justify-center gap-1.5 hover:from-indigo-600 hover:to-purple-600 transition disabled:opacity-50 cursor-pointer active:scale-95"
+                className="bg-gradient-to r from-indigo-500 to-purple-500 text-white font-semibold px-4 rounded-xl flex items-center justify-center gap-1.5 hover:from-indigo-600 hover:to-purple-600 transition disabled:opacity-50 cursor-pointer active:scale-95"
               >
                 {addLoading ? (
                   <Loader2 className="animate-spin" size={14} />
