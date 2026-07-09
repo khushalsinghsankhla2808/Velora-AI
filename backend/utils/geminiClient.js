@@ -14,8 +14,8 @@ export function getGeminiClient() {
 }
 
 // Default model for all chat/generation tasks
-export const CHAT_MODEL = 'gemini-1.5-flash';      // fast, free tier friendly
-export const BUILD_MODEL = 'gemini-1.5-pro';        // for website generation (larger output)
+export const CHAT_MODEL = 'gemini-2.0-flash';
+export const BUILD_MODEL = 'gemini-2.0-flash';
 
 /**
  * Single-turn completion — drop-in replacement for OpenRouter chat calls
@@ -38,6 +38,35 @@ export async function geminiComplete(systemPrompt, userMessage, model = CHAT_MOD
   const result = await geminiModel.generateContent(userMessage);
   return result.response.text();
 }
+
+/**
+ * Single-turn text generation helper
+ * @param {string} systemPrompt
+ * @param {Array} history
+ * @param {string} userMessage
+ * @returns {Promise<string>}
+ */
+export async function geminiGenerate(systemPrompt, history = [], userMessage) {
+  const client = getGeminiClient();
+  const geminiModel = client.getGenerativeModel({
+    model: BUILD_MODEL,
+    systemInstruction: systemPrompt,
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 8192
+    }
+  });
+
+  const chatHistory = history.map(msg => ({
+    role: msg.role === 'assistant' || msg.role === 'model' ? 'model' : 'user',
+    parts: [{ text: typeof msg.content === 'object' ? JSON.stringify(msg.content) : String(msg.content) }]
+  }));
+
+  const chat = geminiModel.startChat({ history: chatHistory });
+  const result = await chat.sendMessage(userMessage);
+  return result.response.text();
+}
+
 
 /**
  * Multi-turn chat — for conversational assistant features

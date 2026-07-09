@@ -8,28 +8,14 @@ import { useDispatch, useSelector } from "react-redux";
 import { setUserData } from "../redux/userSlice";
 import axios from "axios";
 
-// ─── AI Model Options ─────────────────────────────────────────────────────────
-const AI_MODELS = [
-  {
-    label: "Gemini 2.5 Flash — Fast & Smart",
-    value: "google/gemini-2.5-flash",
-  },
-];
+// No model selector — Gemini 2.0 Flash is used for all generations
+const MODEL = 'gemini-2.0-flash';
 
 // ─── Tech Stack Options ───────────────────────────────────────────────────────
-const TECH_OPTIONS = [
-  { value: "html-css-js",   label: "HTML, CSS & JavaScript" },
-  { value: "tailwind",      label: "Tailwind CSS" },
-  { value: "bootstrap",     label: "Bootstrap 5" },
-  { value: "glassmorphism", label: "Glassmorphism UI" },
-  { value: "neumorphism",   label: "Neumorphism / Soft UI" },
-  { value: "material",      label: "Material Design" },
-  { value: "animations",    label: "Animation Focused" },
-  { value: "vue",           label: "Vue Style" },
-  { value: "react",         label: "React Style" },
-  { value: "scss",          label: "SCSS Architecture" },
-  { value: "javascript",    label: "JavaScript Heavy" },
-  { value: "typescript",    label: "TypeScript Style" },
+const LANGUAGES = [
+  { value: "html-css-js",   label: "HTML + CSS + JavaScript" },
+  { value: "tailwind",      label: "HTML + Tailwind CSS + JavaScript" },
+  { value: "bootstrap",     label: "HTML + Bootstrap 5 + JavaScript" },
 ];
 
 // ─── Progress Phases ──────────────────────────────────────────────────────────
@@ -47,8 +33,7 @@ const Generate = () => {
   const { userData } = useSelector((state) => state.user);
 
   const [prompt, setPrompt] = useState("");
-  const [selectedModel, setSelectedModel] = useState(AI_MODELS[0].value);
-  const [selectedTech, setSelectedTech] = useState(TECH_OPTIONS[0].value);
+  const [selectedTech, setSelectedTech] = useState(LANGUAGES[0].value);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [phaseIndex, setPhaseIndex] = useState(0);
@@ -86,6 +71,7 @@ const Generate = () => {
     if (!prompt.trim()) return;
 
     try {
+      loading = true;
       setLoading(true);
       setError("");
       setProgress(0); // ✅ reset here instead
@@ -95,7 +81,6 @@ const Generate = () => {
         `${import.meta.env.VITE_SERVER_URL}/api/website/generate`,
         {
           prompt,
-          model: selectedModel,
           codePreference: selectedTech,
         },
         { withCredentials: true },
@@ -142,7 +127,7 @@ const Generate = () => {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[200px] h-[200px] bg-white/20 rounded-full blur-[150px]" />
       </div>
 
-      {/* Body */}
+      {/* Main Body */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-16 relative z-10">
         {/* Heading */}
         <motion.div
@@ -167,33 +152,10 @@ const Generate = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="flex flex-col sm:flex-row gap-4 mb-6"
+          className="mb-6"
         >
-          {/* AI Model Selector */}
-          <div className="flex flex-col gap-1 flex-1">
-            <label className="text-xs text-zinc-400 font-medium px-1">
-              AI Model
-            </label>
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              disabled={loading}
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 cursor-pointer"
-            >
-              {AI_MODELS.map((m) => (
-                <option
-                  key={m.value}
-                  value={m.value}
-                  className="bg-[#111] text-white"
-                >
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Tech Stack Selector */}
-          <div className="flex flex-col gap-1 flex-1">
+          <div className="flex flex-col gap-1 w-full">
             <label className="text-xs text-zinc-400 font-medium px-1">
               Programming Preference
             </label>
@@ -203,7 +165,7 @@ const Generate = () => {
               disabled={loading}
               className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 cursor-pointer"
             >
-              {TECH_OPTIONS.map((t) => (
+              {LANGUAGES.map((t) => (
                 <option
                   key={t.value}
                   value={t.value}
@@ -286,7 +248,7 @@ const Generate = () => {
             {/* Bar */}
             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-3">
               <motion.div
-                className="h-full bg-gradient-to-r from-white to-zinc-300 rounded-full"
+                className="h-full bg-gradient to r from-white to-zinc-300 rounded-full"
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               />

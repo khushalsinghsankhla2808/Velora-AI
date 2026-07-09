@@ -1,6 +1,7 @@
 // PATH: backend/controllers/websiteController.js
 
-import { geminiComplete, geminiChat, geminiJSON, CHAT_MODEL, BUILD_MODEL } from "../utils/geminiClient.js";
+import { geminiComplete, geminiChat, geminiJSON, geminiGenerate, CHAT_MODEL, BUILD_MODEL } from "../utils/geminiClient.js";
+import { buildWebsiteGenSystemPrompt } from "../utils/websiteGenPrompt.js";
 import extractJson from "../utils/extractJson.js";
 import { Website } from "../models/websiteModel.js";
 import { User } from "../models/userModel.js";
@@ -19,32 +20,23 @@ import { Octokit } from "@octokit/rest";
 const GENERATE_COST = 10;
 const UPDATE_COST = 5;
 
-// ✅ Updated to allow only Gemini 2.5 Flash
+// ✅ Updated to allow only Gemini 2.0 Flash
 const ALLOWED_MODELS = new Set([
-    "google/gemini-2.5-flash",
+    "google/gemini-2.0-flash",
 ]);
 
 // ✅ Language-specific instructions injected into the master prompt
 const CODE_PREFERENCE_INSTRUCTIONS = {
     "keep": "",
-    "html-css-js": "Use clean semantic HTML5, vanilla CSS3 with CSS variables, and vanilla JavaScript ES6+. No frameworks.",
-    "javascript": "Write JavaScript-heavy code. Use modern ES6+ features, async/await, DOM manipulation, fetch API. Minimal CSS frameworks.",
-    "typescript": "Write TypeScript-style code with strict typing comments in JSDoc format. Use modern ES6+ patterns.",
-    "react": "Structure the code like React components using vanilla JS. Use component-like functions, state management patterns, and props-like patterns in plain JS.",
-    "tailwind": "Use Tailwind CSS via CDN (https://cdn.tailwindcss.com). Apply Tailwind utility classes throughout. Do not write custom CSS except for animations.",
-    "vue": "Structure JavaScript like Vue 3 Composition API patterns using vanilla JS. Use reactive data patterns and template-like rendering functions.",
-    "bootstrap": "Use Bootstrap 5 via CDN (https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css and JS). Use Bootstrap grid, components, and utilities throughout.",
-    "glassmorphism": "Apply glassmorphism UI design: frosted glass effect (backdrop-filter: blur), semi-transparent backgrounds (rgba with 0.1-0.2 opacity), subtle borders (1px solid rgba(255,255,255,0.2)), dark or gradient backgrounds. Make it look premium and modern.",
-    "neumorphism": "Apply neumorphism UI design: soft UI with subtle inset/outset shadows on matching background colors. Use light gray (#e0e5ec) or dark (#2d3436) base. Shadows: positive and negative box-shadow pairs.",
-    "material": "Apply Material Design 3 principles: use Material color system, elevation shadows, ripple effects on buttons, Material typography scale (Roboto font via Google Fonts is allowed), cards with proper elevation.",
-    "scss": "Write CSS as if it were SCSS (nested selectors as comments, BEM methodology, CSS custom properties as variables). Focus on well-organized, modular CSS architecture with smooth animations.",
-    "animations": "Focus heavily on animations and micro-interactions: CSS keyframe animations, scroll-triggered effects using Intersection Observer, hover transitions (300ms ease), page transitions, loading skeletons, and parallax effects.",
+    "html-css-js": "Use clean semantic HTML5, vanilla CSS3 with CSS variables, and vanilla JavaScript ES6+. No frameworks. No build tools. Single HTML file preferred.",
+    "tailwind": "Use semantic HTML5 and Tailwind CSS via CDN (<script src='https://cdn.tailwindcss.com'></script>). Vanilla JavaScript ES6+. No build tools. Single HTML file.",
+    "bootstrap": "Use semantic HTML5 and Bootstrap 5 via CDN links. Vanilla JavaScript ES6+. No build tools. Single HTML file.",
 };
 
 const ALLOWED_CODE_PREFERENCES = new Set(Object.keys(CODE_PREFERENCE_INSTRUCTIONS));
 
 const validateModel = (model) => {
-    const validModels = new Set(["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"]);
+    const validModels = new Set(["gemini-2.0-flash"]);
     if (validModels.has(model)) return model;
     return CHAT_MODEL;
 };
@@ -63,9 +55,6 @@ export const generateWebsite = async (req, res) => {
             ? req.body.codePreference
             : "html-css-js";
 
-        // ✅ Get language-specific instructions
-        const langInstructions = CODE_PREFERENCE_INSTRUCTIONS[codePreference] || "";
-
         const user = await User.findOneAndUpdate(
             { _id: req.user._id, credits: { $gte: GENERATE_COST } },
             { $inc: { credits: -GENERATE_COST } },
@@ -77,59 +66,27 @@ export const generateWebsite = async (req, res) => {
         }
         creditsReserved = true;
 
-        const masterPrompt = `
-You are a **Principal Frontend Architect** at a top-tier agency (ex-Apple + Vercel). 
-Generate a **production-grade, visually stunning, fully responsive website** that looks like it was hand-crafted by a senior designer + developer team in 2026.
+        const systemPrompt = buildWebsiteGenSystemPrompt(codePreference);
+        const userMessage = `Build this web app: ${prompt}`;
+        const html = await geminiGenerate(systemPrompt, [], userMessage);
 
-USER REQUIREMENT: ${prompt}
-
-CODE STYLE: ${langInstructions || "Modern vanilla HTML5 + Tailwind via CDN + clean JS"}
-
-CRITICAL REQUIREMENTS:
-1. **Design Excellence**: Premium aesthetics, generous whitespace, micro-animations, perfect typography (system + 1-2 Google fonts), subtle shadows/gradients, hover states.
-2. **Structure**: Multi-section SPA with smooth JS navigation. At minimum: Hero, Features/Services, About, Testimonials, Contact (with form).
-3. **Responsiveness**: Mobile-first, flawless on all devices. Use Tailwind or clean CSS Grid/Flex.
-4. **Performance & Accessibility**: Semantic HTML, proper ARIA, fast load, lazy images, good contrast.
-5. **Content**: Rich, professional, benefit-focused copy tailored to the business. NO lorem ipsum. Use real Unsplash/Pexels-style image URLs.
-6. **Interactivity**: Working form (JS validation + fake submission), smooth scroll, mobile menu, at least 2-3 subtle animations (GSAP-like via CSS/JS).
-7. **Technical**: 
-   - index.html loads external CSS/JS via relative paths.
-   - All assets HTTPS.
-   - No broken links or console errors.
-   - Dark/light mode toggle if it fits the brand.
-
-OUTPUT FORMAT — **RAW JSON ONLY**:
-{
-  "message": "Brief professional summary of the generated site",
-  "files": [
-    {"path": "index.html", "content": "..."},
-    {"path": "style.css", "content": "..."},
-    {"path": "script.js", "content": "..."}
-    // Support additional files: about.html, components/, assets/ descriptions etc.
-  ],
-  "metadata": {
-    "primaryColor": "#3b82f6",
-    "fontFamily": "Inter, system-ui",
-    "suggestedSlug": "business-name"
-  }
-}
-`;
-
-        const systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.";
-        const parsed = await geminiJSON(systemPrompt, masterPrompt, []);
+        // Strip any accidental markdown fences
+        const cleanHtml = html.replace(/```html|```/g, '').trim();
 
         const website = new Website({
             user: user._id,
             title: prompt.slice(0, 60),
             conversation: [
                 { role: "user", content: prompt },
-                { role: "ai", content: parsed.message },
+                { role: "ai", content: "Generated HTML website" },
             ],
         });
 
-        const fileIds = await saveWebsiteFiles(website._id, parsed.files);
+        // We save index.html in the file system for backward compatibility
+        const filesToSave = [{ path: "index.html", content: cleanHtml, type: "frontend" }];
+        const fileIds = await saveWebsiteFiles(website._id, filesToSave);
         website.files = fileIds;
-        website.latestCode = bundleHTML(parsed.files);
+        website.latestCode = cleanHtml;
         await website.save();
 
         await CreditTransaction.create({
@@ -143,7 +100,7 @@ OUTPUT FORMAT — **RAW JSON ONLY**:
         });
         creditsReserved = false;
 
-        return sendSuccess(res, { websiteId: website._id, remainingCredits: user.credits }, 201);
+        return sendSuccess(res, { html: cleanHtml, websiteId: website._id, remainingCredits: user.credits }, 201);
 
     } catch (error) {
         if (creditsReserved) {

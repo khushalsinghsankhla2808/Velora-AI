@@ -1,49 +1,26 @@
 // PATH: frontend/src/pages/BuildPage.jsx
 import React, { useState } from 'react';
-import FileTreePanel from '../components/build/FileTreePanel';
-import CodeEditorPanel from '../components/build/CodeEditorPanel';
-import LivePreviewPanel from '../components/build/LivePreviewPanel';
-import PromptBar from '../components/build/PromptBar';
 import GeneratingOverlay from '../components/build/GeneratingOverlay';
 
-const MODELS = [
-  { label: 'Gemini 2.5 Flash', value: 'google/gemini-2.5-flash' },
-  { label: 'Gemini 1.5 Pro', value: 'google/gemini-1.5-pro' },
-  { label: 'GPT-4o Mini', value: 'openai/gpt-4o-mini' },
-  { label: 'Claude 3.5 Sonnet', value: 'anthropic/claude-3.5-sonnet' },
-  { label: 'DeepSeek Coder', value: 'deepseek/deepseek-coder' }
-];
-
 const STYLES = [
-  { value: 'minimal', label: 'Minimalist' },
-  { value: 'enterprise', label: 'Enterprise Layered' },
-  { value: 'beginner-friendly', label: 'Beginner Friendly' },
-  { value: 'performance-first', label: 'Performance First' },
-  { value: 'opinionated', label: 'Opinionated' },
-  { value: 'verbose', label: 'Verbose/Explicit' },
-  { value: 'functional', label: 'Functional Pure' },
-  { value: 'modern', label: 'Modern ES2024' },
-  { value: 'secure', label: 'Security Hardened' },
-  { value: 'test-driven', label: 'Test Driven' },
-  { value: 'microservices', label: 'Microservices Split' },
-  { value: 'fullstack-typed', label: 'Fullstack Typed' }
+  { value: 'html-css-js', label: 'HTML + CSS + JavaScript' },
+  { value: 'tailwind', label: 'HTML + Tailwind CSS + JavaScript' },
+  { value: 'bootstrap', label: 'HTML + Bootstrap 5 + JavaScript' }
 ];
 
 export default function BuildPage() {
   const [status, setStatus] = useState('idle');        // idle | generating | done | error
-  const [project, setProject] = useState(null);         // full API response
-  const [files, setFiles] = useState([]);               // array of { path, content, type }
-  const [activeFile, setActiveFile] = useState(null);   // currently selected file
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [promptInput, setPromptInput] = useState('');
   const [originalPrompt, setOriginalPrompt] = useState('');
-  const [model, setModel] = useState('google/gemini-2.5-flash');
-  const [style, setStyle] = useState('minimal');
+  const [style, setStyle] = useState('html-css-js');
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const generate = async ({ prompt, isFollowUp = false }) => {
     setStatus('generating');
     setError('');
 
-    // If it's the first time generating, save the prompt as the original prompt
     let currentOriginalPrompt = originalPrompt;
     if (!isFollowUp) {
       currentOriginalPrompt = prompt;
@@ -53,13 +30,11 @@ export default function BuildPage() {
     try {
       const body = {
         prompt,
-        model,
         style,
-        mode: 'website_gen',
         history: isFollowUp
           ? [
               { role: 'user', content: `Build this web app: ${currentOriginalPrompt}` },
-              { role: 'assistant', content: JSON.stringify({ files }) }
+              { role: 'assistant', content: previewHtml }
             ]
           : []
       };
@@ -77,23 +52,7 @@ export default function BuildPage() {
       }
 
       const data = await res.json();
-      setProject(data.project);
-      
-      const newFiles = data.files || [];
-      setFiles(newFiles);
-
-      // Auto-select first file if not already editing a specific file path
-      if (newFiles.length > 0) {
-        if (activeFile) {
-          const matchingFile = newFiles.find(f => f.path === activeFile.path);
-          setActiveFile(matchingFile ?? newFiles[0]);
-        } else {
-          setActiveFile(newFiles[0]);
-        }
-      } else {
-        setActiveFile(null);
-      }
-
+      setPreviewHtml(data.html);
       setStatus('done');
     } catch (err) {
       setError(err.message);
@@ -101,10 +60,29 @@ export default function BuildPage() {
     }
   };
 
-  const updateFileContent = (path, newContent) => {
-    setFiles(prev => prev.map(f => f.path === path ? { ...f, content: newContent } : f));
-    if (activeFile && activeFile.path === path) {
-      setActiveFile(prev => ({ ...prev, content: newContent }));
+  const handleSubmit = () => {
+    if (!promptInput.trim() || status === 'generating') return;
+    generate({ prompt: promptInput.trim(), isFollowUp: !!previewHtml });
+    setPromptInput('');
+  };
+
+  const downloadHtml = () => {
+    const blob = new Blob([previewHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'velora-website.html';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyHtml = async () => {
+    try {
+      await navigator.clipboard.writeText(previewHtml);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy HTML:', err);
     }
   };
 
@@ -124,78 +102,97 @@ export default function BuildPage() {
           </span>
         </div>
 
-        {/* Dynamic Model & Style selectors in header */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase text-white/40 tracking-wider font-semibold font-sans">Model</span>
-            <select
-              value={model}
-              onChange={e => setModel(e.target.value)}
-              disabled={status === 'generating'}
-              className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-40 font-medium font-sans"
-            >
-              {MODELS.map(opt => (
-                <option key={opt.value} value={opt.value} className="bg-[#0d0d0f] text-white">
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase text-white/40 tracking-wider font-semibold font-sans">Style</span>
-            <select
-              value={style}
-              onChange={e => setStyle(e.target.value)}
-              disabled={status === 'generating'}
-              className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-40 font-medium font-sans"
-            >
-              {STYLES.map(opt => (
-                <option key={opt.value} value={opt.value} className="bg-[#0d0d0f] text-white">
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Style Selector only in header */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase text-white/40 tracking-wider font-semibold font-sans">Style</span>
+          <select
+            value={style}
+            onChange={e => setStyle(e.target.value)}
+            disabled={status === 'generating'}
+            className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-40 font-medium font-sans"
+          >
+            {STYLES.map(opt => (
+              <option key={opt.value} value={opt.value} className="bg-[#0d0d0f] text-white">
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
       </header>
 
-      {/* Three panels */}
-      <div className="flex flex-1 overflow-hidden relative">
+      {/* Main Preview Container */}
+      <div className="flex-1 overflow-hidden relative bg-white">
         {status === 'generating' && <GeneratingOverlay />}
-
-        {/* Panel 1 — File Tree */}
-        <aside className="w-60 border-r border-white/10 overflow-y-auto shrink-0 bg-[#0d0d0f]">
-          <FileTreePanel
-            files={files}
-            activeFile={activeFile}
-            onSelect={setActiveFile}
+        
+        {previewHtml ? (
+          <iframe
+            srcDoc={previewHtml}
+            sandbox="allow-scripts allow-same-origin"
+            className="w-full h-full border-none bg-white"
+            title="Preview"
           />
-        </aside>
-
-        {/* Panel 2 — Code Editor */}
-        <main className="flex-1 overflow-hidden bg-[#1e1e1e]">
-          <CodeEditorPanel
-            file={activeFile}
-            onChange={updateFileContent}
-          />
-        </main>
-
-        {/* Panel 3 — Live Preview */}
-        <aside className="w-[480px] border-l border-white/10 shrink-0">
-          <LivePreviewPanel files={files} />
-        </aside>
+        ) : (
+          <div className="absolute inset-0 bg-[#0d0d0f] flex flex-col items-center justify-center text-white/30 text-xs p-6 text-center select-none">
+            <p>Your web app preview will render here. Enter a prompt below to generate.</p>
+          </div>
+        )}
       </div>
 
-      {/* Prompt bar at bottom */}
-      <PromptBar
-        status={status}
-        hasProject={files.length > 0}
-        onGenerate={generate}
-        error={error}
-        files={files}
-        project={project}
-      />
+      {/* Simplified Prompt & Action Bar at bottom */}
+      <div className="border-t border-white/10 bg-[#0d0d0f] px-6 py-4 shrink-0">
+        {error && (
+          <div className="flex items-center gap-2 text-red-400 text-xs mb-3 font-sans bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg max-w-5xl mx-auto">
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="flex gap-3 items-center max-w-5xl mx-auto">
+          <textarea
+            rows={1}
+            value={promptInput}
+            onChange={e => setPromptInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+            placeholder={previewHtml ? 'Ask for changes — e.g., "Change the background color to dark purple"' : 'Describe the website you want to generate...'}
+            disabled={status === 'generating'}
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 resize-none focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all disabled:opacity-40 font-sans"
+          />
+
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={handleSubmit}
+              disabled={status === 'generating' || !promptInput.trim()}
+              className="h-[44px] px-5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-all flex items-center gap-2 font-sans"
+            >
+              <span>{status === 'generating' ? 'Building...' : previewHtml ? 'Refine' : 'Generate'}</span>
+            </button>
+
+            {previewHtml && (
+              <>
+                <button
+                  onClick={downloadHtml}
+                  className="h-[44px] px-4 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-sm rounded-xl transition-all flex items-center gap-2 font-sans"
+                  title="Download HTML file"
+                >
+                  Download HTML
+                </button>
+                <button
+                  onClick={copyHtml}
+                  className="h-[44px] px-4 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 text-sm rounded-xl transition-all flex items-center gap-2 font-sans"
+                  title="Copy HTML to clipboard"
+                >
+                  {copied ? 'Copied!' : 'Copy HTML'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+

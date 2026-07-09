@@ -1,13 +1,13 @@
 // PATH: backend/routes/generateWebsite.js
 import express from 'express';
-import { geminiJSON } from '../utils/geminiClient.js';
-import { openRouterClient } from '../utils/openRouterClient.js';
+import { geminiGenerate } from '../utils/geminiClient.js';
 import { buildWebsiteGenSystemPrompt } from '../utils/websiteGenPrompt.js';
+
 
 const router = express.Router();
 
 router.post('/', async (req, res) => {
-  const { prompt, model, style, history = [], mode } = req.body;
+  const { prompt, style, history = [] } = req.body;
 
   if (!prompt) {
     return res.status(400).json({ error: 'prompt is required' });
@@ -20,16 +20,14 @@ router.post('/', async (req, res) => {
   if (history && history.length >= 2) {
     // Follow-up flow:
     // history[0] represents original prompt
-    // history[1] represents previous files JSON
+    // history[1] represents previous HTML content
     const originalPrompt = history[0].content;
-    const previousFilesStr = typeof history[1].content === 'object'
-      ? JSON.stringify(history[1].content)
-      : String(history[1].content);
+    const previousHtmlStr = String(history[1].content);
 
     messages = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: originalPrompt },
-      { role: 'assistant', content: previousFilesStr },
+      { role: 'assistant', content: previousHtmlStr },
       { role: 'user', content: `Now: ${prompt}` }
     ];
   } else {
@@ -41,29 +39,16 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    let parsed;
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    // Generate website single HTML content via native Gemini API
+    const lastUserMessage = messages[messages.length - 1].content;
+    const geminiHistory = messages.slice(1, -1).map(msg => ({
+      role: msg.role === 'model' || msg.role === 'assistant' ? 'model' : 'user',
+      content: msg.content
+    }));
+    const rawHtml = await geminiGenerate(systemPrompt, geminiHistory, lastUserMessage);
+    const cleanHtml = rawHtml.replace(/```html|```/g, '').trim();
 
-    if (apiKey && apiKey !== 'your_openrouter_api_key_here' && apiKey !== 'mock_openrouter_api_key') {
-      const response = await openRouterClient.chat({
-        model: model || 'google/gemini-2.5-flash',
-        messages,
-        response_format: { type: 'json_object' }
-      });
-      const clean = response.content.replace(/```json|```/g, '').trim();
-      parsed = JSON.parse(clean);
-    } else {
-      // Fallback to native Gemini API
-      // Since geminiJSON takes systemPrompt, userMessage, history, let's adapt it:
-      const lastUserMessage = messages[messages.length - 1].content;
-      const geminiHistory = messages.slice(1, -1).map(msg => ({
-        role: msg.role === 'model' || msg.role === 'assistant' ? 'assistant' : 'user',
-        content: msg.content
-      }));
-      parsed = await geminiJSON(systemPrompt, lastUserMessage, geminiHistory);
-    }
-
-    res.json(parsed);
+    res.json({ html: cleanHtml });
   } catch (err) {
     console.error('generateWebsite error:', err.message);
 
@@ -75,13 +60,11 @@ router.post('/', async (req, res) => {
       return res.status(401).json({ error: 'Invalid API key configuration on server.' });
     }
 
-    if (err instanceof SyntaxError) {
-      return res.status(500).json({ error: 'AI returned malformed JSON. Try again.' });
-    }
-
     res.status(500).json({ error: err.message });
   }
 });
 
 export default router;
+
+
 

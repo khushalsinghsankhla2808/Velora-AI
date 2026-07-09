@@ -2,26 +2,27 @@
 
 export const AI_MODELS = [
   {
-    id: "gemini-2.5-flash",
-    label: "Gemini 2.5 Flash",
+    id: "gemini-2.0-flash",
+    label: "Gemini 2.0 Flash",
     provider: "gemini",
-    providerModel: "google/gemini-2.5-flash",
+    providerModel: "google/gemini-2.0-flash",
     credits: 5,
   },
 ];
 
 export const LEGACY_MODEL_MAP = {
-  "google/gemini-2.0-flash-exp:free": "gemini-2.5-flash",
-  "deepseek/deepseek-r1:free": "gemini-2.5-flash",
-  "meta-llama/llama-4-maverick:free": "gemini-2.5-flash",
-  "mistralai/mistral-small-3.1-24b-instruct:free": "gemini-2.5-flash",
-  "google/gemini-2.5-pro": "gemini-2.5-flash",
-  "gpt-5.5": "gemini-2.5-flash",
-  "claude-sonnet": "gemini-2.5-flash",
-  "claude-opus": "gemini-2.5-flash",
-  "deepseek-v3": "gemini-2.5-flash",
-  "llama": "gemini-2.5-flash",
-  "qwen": "gemini-2.5-flash",
+  "google/gemini-2.0-flash-exp:free": "gemini-2.0-flash",
+  "deepseek/deepseek-r1:free": "gemini-2.0-flash",
+  "meta-llama/llama-4-maverick:free": "gemini-2.0-flash",
+  "mistralai/mistral-small-3.1-24b-instruct:free": "gemini-2.0-flash",
+  "google/gemini-2.5-pro": "gemini-2.0-flash",
+  "google/gemini-2.5-flash": "gemini-2.0-flash",
+  "gpt-5.5": "gemini-2.0-flash",
+  "claude-sonnet": "gemini-2.0-flash",
+  "claude-opus": "gemini-2.0-flash",
+  "deepseek-v3": "gemini-2.0-flash",
+  "llama": "gemini-2.0-flash",
+  "qwen": "gemini-2.0-flash",
 };
 
 export const FRAMEWORKS = [
@@ -60,7 +61,7 @@ export const COMPLEXITY_LEVELS = [
 ];
 
 export const DEFAULT_GENERATION_SETTINGS = {
-  aiModel: "gemini-2.5-flash",
+  aiModel: "gemini-2.0-flash",
   framework: "html",
   styling: "custom-css",
   backend: "none",
