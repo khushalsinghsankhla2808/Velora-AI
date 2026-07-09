@@ -1,5 +1,5 @@
 // PATH: frontend/src/pages/WebsiteEditor.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import Editor from "@monaco-editor/react";
 import { Code2, Download, Loader2, MessageSquare, Monitor, Rocket, Send, X, Github, History, ShieldAlert, Palette, Users, Grid, Play, Bug, Share2, FileCode, Check, AlertCircle, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -362,7 +362,7 @@ const WebsiteEditor = () => {
   const activeFile = files.find(f => f._id === activeFileId);
 
   // Fetch all files from backend
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     try {
       setExplorerLoading(true);
       const result = await axios.get(
@@ -383,7 +383,7 @@ const WebsiteEditor = () => {
     } finally {
       setExplorerLoading(false);
     }
-  };
+  }, [id]);
 
   // Immediate Save Flush Function
   const flushSave = async (fileId) => {
@@ -614,7 +614,10 @@ const WebsiteEditor = () => {
     if (files && files.length > 0) {
       const compiled = bundleHTMLFrontend(files, activePreviewPage);
       if (compiled) {
-        setCode(compiled);
+        const timer = setTimeout(() => {
+          setCode(compiled);
+        }, 0);
+        return () => clearTimeout(timer);
       }
     }
   }, [files, activePreviewPage]);
@@ -653,8 +656,11 @@ const WebsiteEditor = () => {
       }
     };
 
-    loadWebsiteData();
-  }, [id]);
+    const timer = setTimeout(() => {
+      loadWebsiteData();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [id, fetchFiles]);
 
   // Cleanup active save timeout on unmount
   useEffect(() => {

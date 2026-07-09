@@ -1,5 +1,5 @@
 // PATH: frontend/src/components/VersionHistoryPanel.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { History, Save, RotateCcw, Loader2, AlertCircle, Sparkles } from "lucide-react";
 import axios from "axios";
 
@@ -12,7 +12,7 @@ export default function VersionHistoryPanel({ projectId, onUpdateSuccess }) {
   const [restoreLoadingId, setRestoreLoadingId] = useState(null);
   const [error, setError] = useState("");
 
-  const fetchVersions = async () => {
+  const fetchVersions = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -29,11 +29,14 @@ export default function VersionHistoryPanel({ projectId, onUpdateSuccess }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
-    fetchVersions();
-  }, [projectId]);
+    const timer = setTimeout(() => {
+      fetchVersions();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchVersions]);
 
   const handleSaveSnapshot = async (e) => {
     e.preventDefault();
@@ -122,7 +125,7 @@ export default function VersionHistoryPanel({ projectId, onUpdateSuccess }) {
             <button
               type="submit"
               disabled={saveLoading || !label.trim()}
-              className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 hover:from-indigo-600 hover:to-purple-600 transition disabled:opacity-50 cursor-pointer"
+              className="w-full bg-gradient-to r from-indigo-500 to-purple-500 text-white font-semibold py-2 rounded-xl flex items-center justify-center gap-1.5 hover:from-indigo-600 hover:to-purple-600 transition disabled:opacity-50 cursor-pointer"
             >
               {saveLoading ? (
                 <Loader2 className="animate-spin" size={14} />

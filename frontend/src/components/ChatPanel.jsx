@@ -1,5 +1,5 @@
 // PATH: frontend/src/components/ChatPanel.jsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Send, X, AlertCircle, Loader2, Sparkles, FileCode, RotateCcw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
@@ -59,8 +59,14 @@ export default function ChatPanel({
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
 
+  const scrollToBottom = () => {
+    if (typeof messagesEndRef.current?.scrollIntoView === "function") {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   // Load chat history
-  const fetchChatHistory = async (before = "") => {
+  const fetchChatHistory = useCallback(async (before = "") => {
     try {
       setLoadingHistory(true);
       const url = `${import.meta.env.VITE_SERVER_URL}/api/website/${projectId}/chat${
@@ -84,11 +90,13 @@ export default function ChatPanel({
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [projectId]);
 
   useEffect(() => {
-    fetchChatHistory();
-  }, [projectId, chatRefreshTrigger]);
+    (async () => {
+      await fetchChatHistory();
+    })();
+  }, [projectId, chatRefreshTrigger, fetchChatHistory]);
 
   // Handle thinking ticker animation
   useEffect(() => {
@@ -99,11 +107,7 @@ export default function ChatPanel({
     return () => clearInterval(interval);
   }, [updateLoading]);
 
-  const scrollToBottom = () => {
-    if (typeof messagesEndRef.current?.scrollIntoView === "function") {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  };
+
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -173,7 +177,7 @@ export default function ChatPanel({
       <div className="h-14 px-4 flex items-center justify-between border-b border-white/10 shrink-0 bg-zinc-900/60 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <Sparkles className="text-purple-400" size={16} />
-          <span className="font-semibold text-sm tracking-wide bg-gradient-to-r from-purple-200 to-zinc-100 bg-clip-text text-transparent">
+          <span className="font-semibold text-sm tracking-wide bg-gradient-to r from-purple-200 to-zinc-100 bg-clip-text text-transparent">
             AI Targeted Edit
           </span>
         </div>
@@ -204,7 +208,7 @@ export default function ChatPanel({
       {/* Messages list */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0 bg-gradient-to-b from-zinc-950 to-zinc-900/40"
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0 bg-gradient-to b from-zinc-950 to-zinc-900/40"
       >
         {hasMore && (
           <div className="flex justify-center shrink-0">
@@ -236,7 +240,7 @@ export default function ChatPanel({
               <div
                 className={`max-w-[90%] px-4 py-3 rounded-2xl text-xs leading-relaxed shadow-lg ${
                   isUser
-                    ? "bg-gradient-to-br from-indigo-500 via-purple-500 to-purple-600 text-white rounded-br-none"
+                    ? "bg-gradient-to br from-indigo-500 via-purple-500 to-purple-600 text-white rounded-br-none"
                     : "bg-white/5 border border-white/10 text-zinc-200 rounded-bl-none backdrop-blur-xs"
                 }`}
               >

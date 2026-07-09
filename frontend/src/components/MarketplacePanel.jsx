@@ -1,5 +1,5 @@
 // PATH: frontend/src/components/MarketplacePanel.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Grid, Search, PlusCircle, Download, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import axios from "axios";
 
@@ -21,7 +21,7 @@ export default function MarketplacePanel({ projectId, activeFile, onUpdateSucces
 
   const categories = ["All", "Header", "Footer", "Hero", "Pricing", "Form", "Card", "Navigation", "Custom"];
 
-  const fetchComponents = async () => {
+  const fetchComponents = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -42,11 +42,14 @@ export default function MarketplacePanel({ projectId, activeFile, onUpdateSucces
     } finally {
       setLoading(false);
     }
-  };
+  }, [category, search]);
 
   useEffect(() => {
-    fetchComponents();
-  }, [category]);
+    const timer = setTimeout(() => {
+      fetchComponents();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchComponents]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();

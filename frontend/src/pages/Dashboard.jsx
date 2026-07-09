@@ -1,5 +1,5 @@
 // PATH: frontend/src/pages/Dashboard.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -62,7 +62,7 @@ const Dashboard = () => {
     }
   };
 
-  const loadWebsites = async () => {
+  const loadWebsites = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -77,11 +77,14 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadWebsites();
-  }, []);
+    const timer = setTimeout(() => {
+      loadWebsites();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadWebsites]);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
