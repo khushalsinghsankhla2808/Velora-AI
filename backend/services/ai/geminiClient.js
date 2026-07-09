@@ -1,11 +1,12 @@
-// PATH: backend/services/ai/openRouterClient.js
+// PATH: backend/services/ai/geminiClient.js
 
 if (!process.env.OPENROUTER_API_KEY) {
-  throw new Error("[openRouterClient] OPENROUTER_API_KEY is not set in environment variables.");
+  throw new Error("[geminiClient] OPENROUTER_API_KEY is not set in environment variables.");
 }
 
 const DEFAULT_TIMEOUT_MS = 90000;
 const MAX_ATTEMPTS = 2;
+const GEMINI_FLASH_MODEL = "google/gemini-2.5-flash";
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -17,14 +18,12 @@ const readErrorBody = async (response) => {
   }
 };
 
-export const callOpenRouter = async ({
+export const callGeminiFlash = async ({
   prompt,
-  model,
-  providerName,
   systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
 }) => {
   if (!process.env.OPENROUTER_API_KEY) {
-    const err = new Error("[openRouterClient] OPENROUTER_API_KEY is not set in environment variables.");
+    const err = new Error("[geminiClient] OPENROUTER_API_KEY is not set in environment variables.");
     err.code = "AI_UNAVAILABLE";
     throw err;
   }
@@ -44,7 +43,7 @@ export const callOpenRouter = async ({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model,
+          model: GEMINI_FLASH_MODEL,
           messages: [
             {
               role: "system",
@@ -63,14 +62,14 @@ export const callOpenRouter = async ({
 
       if (!response.ok) {
         const errorBody = await readErrorBody(response);
-        throw new Error(`${providerName} provider error: ${errorBody}`);
+        throw new Error(`Gemini provider error: ${errorBody}`);
       }
 
       const data = await response.json();
       const content = data?.choices?.[0]?.message?.content;
 
       if (!content) {
-        throw new Error(`${providerName} provider returned empty content`);
+        throw new Error(`Gemini provider returned empty content`);
       }
 
       return {
@@ -82,7 +81,7 @@ export const callOpenRouter = async ({
       clearTimeout(timeout);
       lastError =
         error.name === "AbortError"
-          ? new Error(`${providerName} provider timed out`)
+          ? new Error(`Gemini provider timed out`)
           : error;
 
       if (attempt < MAX_ATTEMPTS) {
@@ -91,17 +90,13 @@ export const callOpenRouter = async ({
     }
   }
 
-  // Infinite recursion is not possible because the fallback model (google/gemini-2.5-pro)
-  // does not match model.includes("deepseek") since it lacks the "deepseek" substring.
-  if (model.includes("deepseek")) {
-    console.error(`[AI Fallback] DeepSeek failed after all attempts. Switching to google/gemini-2.5-pro. Reason: ${lastError.message}`);
-    return callOpenRouter({
-      prompt,
-      model: "google/gemini-2.5-pro",
-      providerName: "Gemini Pro (Fallback)",
-      systemPrompt,
-    });
-  }
-
   throw lastError;
+};
+
+// Backward-compatible wrapper that maps calls to the centralized Gemini Flash model
+export const callOpenRouter = async (args) => {
+  return callGeminiFlash({
+    prompt: args.prompt,
+    systemPrompt: args.systemPrompt,
+  });
 };

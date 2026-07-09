@@ -1,9 +1,9 @@
 import "dotenv/config";
-export { callOpenRouter } from "../services/ai/openRouterClient.js";
+export { callOpenRouter } from "../services/ai/geminiClient.js";
 import logger from "../utils/logger.js";
 import extractJson from "../utils/extractJson.js";
 
-const DEFAULT_PRIMARY = "deepseek/deepseek-r1";
+const DEFAULT_PRIMARY = "google/gemini-2.5-flash";
 const DEFAULT_FALLBACK = "google/gemini-2.5-flash";
 const DEFAULT_TIMEOUT = 30000;
 
@@ -141,7 +141,7 @@ export const callAIWithFallback = async (prompt, { userId } = {}) => {
 };
 
 // Keep original function for backward compatibility
-export const generateResponse = async (prompt, model = "google/gemini-2.0-flash-exp:free") => {
+export const generateResponse = async (prompt, model = "google/gemini-2.5-flash") => {
     try {
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
@@ -158,7 +158,7 @@ export const generateResponse = async (prompt, model = "google/gemini-2.0-flash-
                     },
                     {
                         role: "user",
-                        content: "systemPrompt" in arguments[2] ? arguments[2].systemPrompt : prompt,
+                        content: arguments[2] && "systemPrompt" in arguments[2] ? arguments[2].systemPrompt : prompt,
                     },
                 ],
                 temperature: 0.2,
@@ -173,9 +173,9 @@ export const generateResponse = async (prompt, model = "google/gemini-2.0-flash-
         const data = await res.json();
         return data.choices[0].message.content;
     } catch (error) {
-        if (model.includes("deepseek")) {
-            console.warn(`DeepSeek model call failed. Falling back to google/gemini-2.0-flash-exp:free. Error: ${error.message}`);
-            return generateResponse(prompt, "google/gemini-2.0-flash-exp:free");
+        if (!model.includes("gemini-2.5-flash")) {
+            console.warn(`${model} model call failed. Falling back to google/gemini-2.5-flash. Error: ${error.message}`);
+            return generateResponse(prompt, "google/gemini-2.5-flash");
         }
         throw error;
     }

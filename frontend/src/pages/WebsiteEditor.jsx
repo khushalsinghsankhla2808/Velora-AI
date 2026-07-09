@@ -36,13 +36,7 @@ const CODE_OPTIONS = [
 ];
 
 const EDITOR_MODELS = [
-  { label: "Gemini 2.0 Flash",  value: "google/gemini-2.0-flash-exp:free" },
-  { label: "DeepSeek R1",       value: "deepseek/deepseek-r1:free" },
-  { label: "Kimi (Moonshot)",   value: "moonshotai/kimi-vl-a3b-thinking:free" },
-  { label: "MiniMax",           value: "minimax/minimax-01" },
-  { label: "Qwen 3 235B",       value: "qwen/qwen3-235b-a22b:free" },
-  { label: "Llama 4 Maverick",  value: "meta-llama/llama-4-maverick:free" },
-  { label: "Mistral Small",     value: "mistralai/mistral-small-3.1-24b-instruct:free" },
+  { label: "Gemini 2.5 Flash",  value: "google/gemini-2.5-flash" },
 ];
 
 const thinkingSteps = [
@@ -1106,7 +1100,7 @@ const WebsiteEditor = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black z-[9999]"
+            className="fixed inset-0 bg-black z-9999"
           >
             <iframe
               className="w-full h-full bg-white border-none"

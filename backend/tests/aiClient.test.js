@@ -8,9 +8,9 @@ if (!process.env.OPENROUTER_API_KEY) {
   process.env.OPENROUTER_API_KEY = "mock-openrouter-key";
 }
 
-import { callOpenRouter } from "../services/ai/openRouterClient.js";
+import { callOpenRouter } from "../services/ai/geminiClient.js";
 
-describe("OpenRouter Client Unit Tests", () => {
+describe("Gemini Flash Client Unit Tests", () => {
   const originalFetch = globalThis.fetch;
   let fetchMockCalls = [];
 
@@ -58,7 +58,7 @@ describe("OpenRouter Client Unit Tests", () => {
     };
   };
 
-  test("Successful DeepSeek call returns { success: true, content, tokensUsed }", async () => {
+  test("Successful Gemini Flash call returns { success: true, content, tokensUsed }", async () => {
     setupFetchMock([
       {
         ok: true,
@@ -79,8 +79,6 @@ describe("OpenRouter Client Unit Tests", () => {
 
     const result = await callOpenRouter({
       prompt: "Test Prompt",
-      model: "deepseek/deepseek-r1",
-      providerName: "DeepSeek",
     });
 
     assert.deepStrictEqual(result, {
@@ -89,107 +87,53 @@ describe("OpenRouter Client Unit Tests", () => {
       tokensUsed: 150,
     });
     assert.strictEqual(fetchMockCalls.length, 1);
-    assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
+    assert.strictEqual(fetchMockCalls[0].model, "google/gemini-2.5-flash");
   });
 
-  test("DeepSeek times out → retries → falls back to Gemini → returns content", async () => {
+  test("Gemini Flash times out on 1st attempt → retries and succeeds on 2nd attempt", async () => {
     setupFetchMock([
-      { shouldTimeout: true }, // DeepSeek 1st attempt times out
-      { shouldTimeout: true }, // DeepSeek 2nd attempt times out
+      { shouldTimeout: true }, // 1st attempt times out
       {
         ok: true,
         json: {
           choices: [
             {
               message: {
-                content: "Gemini Fallback Content",
+                content: "Success Content on Retry",
               },
             },
           ],
           usage: {
-            total_tokens: 250,
+            total_tokens: 200,
           },
         },
-      }, // Gemini succeeds
+      }, // 2nd attempt succeeds
     ]);
 
     const result = await callOpenRouter({
       prompt: "Test Prompt",
-      model: "deepseek/deepseek-r1",
-      providerName: "DeepSeek",
     });
 
     assert.deepStrictEqual(result, {
       success: true,
-      content: "Gemini Fallback Content",
-      tokensUsed: 250,
+      content: "Success Content on Retry",
+      tokensUsed: 200,
     });
-    assert.strictEqual(fetchMockCalls.length, 3);
-    assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
-    assert.strictEqual(fetchMockCalls[1].model, "deepseek/deepseek-r1");
-    assert.strictEqual(fetchMockCalls[2].model, "google/gemini-2.5-pro");
+    assert.strictEqual(fetchMockCalls.length, 2);
+    assert.strictEqual(fetchMockCalls[0].model, "google/gemini-2.5-flash");
+    assert.strictEqual(fetchMockCalls[1].model, "google/gemini-2.5-flash");
   });
 
-  test("DeepSeek returns non-ok response → falls back to Gemini", async () => {
+  test("Gemini Flash fails both attempts → throws error", async () => {
     setupFetchMock([
-      {
-        ok: false,
-        status: 500,
-        text: "Internal Server Error",
-      }, // DeepSeek 1st attempt fails
-      {
-        ok: false,
-        status: 500,
-        text: "Internal Server Error",
-      }, // DeepSeek 2nd attempt fails
-      {
-        ok: true,
-        json: {
-          choices: [
-            {
-              message: {
-                content: "Gemini Fallback Content on Error",
-              },
-            },
-          ],
-          usage: {
-            total_tokens: 300,
-          },
-        },
-      }, // Gemini succeeds
-    ]);
-
-    const result = await callOpenRouter({
-      prompt: "Test Prompt",
-      model: "deepseek/deepseek-r1",
-      providerName: "DeepSeek",
-    });
-
-    assert.deepStrictEqual(result, {
-      success: true,
-      content: "Gemini Fallback Content on Error",
-      tokensUsed: 300,
-    });
-    assert.strictEqual(fetchMockCalls.length, 3);
-    assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
-    assert.strictEqual(fetchMockCalls[1].model, "deepseek/deepseek-r1");
-    assert.strictEqual(fetchMockCalls[2].model, "google/gemini-2.5-pro");
-  });
-
-  test("Both DeepSeek and Gemini fail → throws lastError", async () => {
-    setupFetchMock([
-      { shouldTimeout: true }, // DeepSeek 1st attempt times out
-      { shouldTimeout: true }, // DeepSeek 2nd attempt times out
-      { shouldTimeout: true }, // Gemini fallback 1st attempt times out
-      { shouldTimeout: true }, // Gemini fallback 2nd attempt times out
+      { shouldTimeout: true }, // 1st attempt times out
+      { shouldTimeout: true }, // 2nd attempt times out
     ]);
 
     await assert.rejects(
       async () => {
         await callOpenRouter({
           prompt: "Test Prompt",
-          model: "deepseek/deepseek-r1",
-          providerName: "DeepSeek",
         });
       },
       (err) => {
@@ -198,11 +142,9 @@ describe("OpenRouter Client Unit Tests", () => {
       }
     );
 
-    assert.strictEqual(fetchMockCalls.length, 4);
-    assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
-    assert.strictEqual(fetchMockCalls[1].model, "deepseek/deepseek-r1");
-    assert.strictEqual(fetchMockCalls[2].model, "google/gemini-2.5-pro");
-    assert.strictEqual(fetchMockCalls[3].model, "google/gemini-2.5-pro");
+    assert.strictEqual(fetchMockCalls.length, 2);
+    assert.strictEqual(fetchMockCalls[0].model, "google/gemini-2.5-flash");
+    assert.strictEqual(fetchMockCalls[1].model, "google/gemini-2.5-flash");
   });
 
   test("Missing OPENROUTER_API_KEY env var → throws on module load", async () => {
@@ -210,11 +152,11 @@ describe("OpenRouter Client Unit Tests", () => {
     delete process.env.OPENROUTER_API_KEY;
     try {
       await assert.rejects(
-        () => import(`../services/ai/openRouterClient.js?t=${Date.now()}`),
+        () => import(`../services/ai/geminiClient.js?t=${Date.now()}`),
         (err) => {
           assert.strictEqual(
             err.message,
-            "[openRouterClient] OPENROUTER_API_KEY is not set in environment variables."
+            "[geminiClient] OPENROUTER_API_KEY is not set in environment variables."
           );
           return true;
         }

@@ -2,61 +2,26 @@
 
 export const AI_MODELS = [
   {
-    id: "gpt-5.5",
-    label: "GPT-5.5",
-    provider: "openai",
-    providerModel: "openai/gpt-5.5",
-    credits: 10,
-  },
-  {
-    id: "claude-sonnet",
-    label: "Claude Sonnet",
-    provider: "anthropic",
-    providerModel: "anthropic/claude-sonnet-4",
-    credits: 8,
-  },
-  {
-    id: "claude-opus",
-    label: "Claude Opus",
-    provider: "anthropic",
-    providerModel: "anthropic/claude-opus-4",
-    credits: 12,
-  },
-  {
-    id: "gemini-2.5-pro",
-    label: "Gemini 2.5 Pro",
+    id: "gemini-2.5-flash",
+    label: "Gemini 2.5 Flash",
     provider: "gemini",
-    providerModel: "google/gemini-2.5-pro",
-    credits: 7,
-  },
-  {
-    id: "deepseek-v3",
-    label: "DeepSeek V3",
-    provider: "deepseek",
-    providerModel: "deepseek/deepseek-chat-v3-0324",
-    credits: 4,
-  },
-  {
-    id: "llama",
-    label: "Llama",
-    provider: "llama",
-    providerModel: "meta-llama/llama-4-maverick",
-    credits: 3,
-  },
-  {
-    id: "qwen",
-    label: "Qwen",
-    provider: "qwen",
-    providerModel: "qwen/qwen3-coder",
-    credits: 3,
+    providerModel: "google/gemini-2.5-flash",
+    credits: 5,
   },
 ];
 
 export const LEGACY_MODEL_MAP = {
-  "google/gemini-2.0-flash-exp:free": "gemini-2.5-pro",
-  "deepseek/deepseek-r1:free": "deepseek-v3",
-  "meta-llama/llama-4-maverick:free": "llama",
-  "mistralai/mistral-small-3.1-24b-instruct:free": "deepseek-v3",
+  "google/gemini-2.0-flash-exp:free": "gemini-2.5-flash",
+  "deepseek/deepseek-r1:free": "gemini-2.5-flash",
+  "meta-llama/llama-4-maverick:free": "gemini-2.5-flash",
+  "mistralai/mistral-small-3.1-24b-instruct:free": "gemini-2.5-flash",
+  "google/gemini-2.5-pro": "gemini-2.5-flash",
+  "gpt-5.5": "gemini-2.5-flash",
+  "claude-sonnet": "gemini-2.5-flash",
+  "claude-opus": "gemini-2.5-flash",
+  "deepseek-v3": "gemini-2.5-flash",
+  "llama": "gemini-2.5-flash",
+  "qwen": "gemini-2.5-flash",
 };
 
 export const FRAMEWORKS = [
@@ -95,7 +60,7 @@ export const COMPLEXITY_LEVELS = [
 ];
 
 export const DEFAULT_GENERATION_SETTINGS = {
-  aiModel: "gemini-2.5-pro",
+  aiModel: "gemini-2.5-flash",
   framework: "html",
   styling: "custom-css",
   backend: "none",

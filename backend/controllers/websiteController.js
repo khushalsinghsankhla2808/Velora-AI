@@ -1,6 +1,6 @@
 // PATH: backend/controllers/websiteController.js
 
-import { callOpenRouter } from "../services/ai/openRouterClient.js";
+import { callOpenRouter } from "../services/ai/geminiClient.js";
 import extractJson from "../utils/extractJson.js";
 import { Website } from "../models/websiteModel.js";
 import { User } from "../models/userModel.js";
@@ -19,32 +19,9 @@ import { Octokit } from "@octokit/rest";
 const GENERATE_COST = 10;
 const UPDATE_COST = 5;
 
-// ✅ Updated — added Kimi, MiniMax, Qwen models
+// ✅ Updated to allow only Gemini 2.5 Flash
 const ALLOWED_MODELS = new Set([
-    "google/gemini-2.0-flash-exp:free",
-    "deepseek/deepseek-r1:free",
-    "meta-llama/llama-4-maverick:free",
-    "mistralai/mistral-small-3.1-24b-instruct:free",
-    "moonshotai/kimi-vl-a3b-thinking:free",
-    "minimax/minimax-01",
-    "qwen/qwen3-235b-a22b:free",
-]);
-
-// ✅ Updated — added new language/style preferences
-const ALLOWED_CODE_PREFERENCES = new Set([
-    "keep",
-    "html-css-js",
-    "javascript",
-    "typescript",
-    "react",
-    "tailwind",
-    "vue",
-    "bootstrap",
-    "glassmorphism",
-    "neumorphism",
-    "material",
-    "scss",
-    "animations",
+    "google/gemini-2.5-flash",
 ]);
 
 // ✅ Language-specific instructions injected into the master prompt
@@ -65,7 +42,7 @@ const CODE_PREFERENCE_INSTRUCTIONS = {
 };
 
 const validateModel = (model) => {
-    if (!model) return "google/gemini-2.0-flash-exp:free";
+    if (!model) return "google/gemini-2.5-flash";
     return ALLOWED_MODELS.has(model) ? model : null;
 };
 
@@ -140,8 +117,8 @@ OUTPUT FORMAT — **RAW JSON ONLY**:
             const currentPrompt = attempt === 0 ? masterPrompt : masterPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. NO MARKDOWN. NO BACKTICKS.";
             const result = await callOpenRouter({
                 prompt: currentPrompt,
-                model: process.env.AI_PRIMARY_MODEL || "deepseek/deepseek-r1",
-                providerName: "DeepSeek",
+                model: process.env.AI_PRIMARY_MODEL || "google/gemini-2.5-flash",
+                providerName: "Gemini",
                 systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
             });
             console.log(`Tokens used: ${result.tokensUsed}`);
@@ -296,8 +273,8 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
             const currentPrompt = attempt === 0 ? updatePrompt : updatePrompt + "\n\nRETURN ONLY RAW JSON. The JSON must contain a files array.";
             const result = await callOpenRouter({
                 prompt: currentPrompt,
-                model: process.env.AI_PRIMARY_MODEL || "deepseek/deepseek-r1",
-                providerName: "DeepSeek",
+                model: process.env.AI_PRIMARY_MODEL || "google/gemini-2.5-flash",
+                providerName: "Gemini",
                 systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
             });
             console.log(`Tokens used: ${result.tokensUsed}`);
@@ -781,8 +758,8 @@ If you do not need to modify any files, return an empty "files" array.
       const currentPrompt = attempt === 0 ? chatPrompt : chatPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. NO MARKDOWN. NO BACKTICKS.";
       result = await callOpenRouter({
         prompt: currentPrompt,
-        model: process.env.AI_PRIMARY_MODEL || "deepseek/deepseek-r1",
-        providerName: "DeepSeek",
+        model: process.env.AI_PRIMARY_MODEL || "google/gemini-2.5-flash",
+        providerName: "Gemini",
         systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
       });
       console.log(`Tokens used: ${result.tokensUsed}`);
@@ -1285,7 +1262,7 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 
     const result = await callOpenRouter({
       prompt: analysisPrompt,
-      model: "google/gemini-2.0-flash-exp:free",
+      model: "google/gemini-2.5-flash",
       providerName: "Gemini",
       systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
     });
@@ -1560,7 +1537,7 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
       const currentPrompt = attempt === 0 ? debuggerPrompt : debuggerPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. The JSON must contain a files array.";
       const result = await callOpenRouter({
         prompt: currentPrompt,
-        model: "google/gemini-2.0-flash-exp:free",
+        model: "google/gemini-2.5-flash",
         providerName: "Gemini",
         systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
       });
@@ -2065,7 +2042,7 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 
     const result = await callOpenRouter({
       prompt: auditPrompt,
-      model: "google/gemini-2.0-flash-exp:free",
+      model: "google/gemini-2.5-flash",
       providerName: "Gemini",
       systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
     });
@@ -2134,7 +2111,7 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 
     const result = await callOpenRouter({
       prompt: brandPrompt,
-      model: "google/gemini-2.0-flash-exp:free",
+      model: "google/gemini-2.5-flash",
       providerName: "Gemini",
       systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
     });

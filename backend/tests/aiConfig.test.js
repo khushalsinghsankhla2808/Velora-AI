@@ -10,7 +10,7 @@ describe("AI Fallback Model Integration Tests", () => {
   beforeEach(() => {
     fetchMockCalls = [];
     // Set custom configurations for test execution
-    process.env.AI_PRIMARY_MODEL = "deepseek/deepseek-r1";
+    process.env.AI_PRIMARY_MODEL = "google/gemini-2.5-flash";
     process.env.AI_FALLBACK_MODEL = "google/gemini-2.5-flash";
     process.env.AI_TIMEOUT_MS = "100"; // Short timeout for quick checks
   });
@@ -80,7 +80,7 @@ describe("AI Fallback Model Integration Tests", () => {
     const parsed = JSON.parse(result);
     assert.strictEqual(parsed.files[0].content, "<html>Primary</html>");
     assert.strictEqual(fetchMockCalls.length, 1);
-    assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
+    assert.strictEqual(fetchMockCalls[0].model, "google/gemini-2.5-flash");
   });
 
   test("should fall back to secondary model when primary times out", async () => {
@@ -107,7 +107,7 @@ describe("AI Fallback Model Integration Tests", () => {
     const parsed = JSON.parse(result);
     assert.strictEqual(parsed.files[0].content, "<h1>Fallback</h1>");
     assert.strictEqual(fetchMockCalls.length, 2);
-    assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
+    assert.strictEqual(fetchMockCalls[0].model, "google/gemini-2.5-flash");
     assert.strictEqual(fetchMockCalls[1].model, "google/gemini-2.5-flash");
   });
 
@@ -146,7 +146,7 @@ describe("AI Fallback Model Integration Tests", () => {
     const parsed = JSON.parse(result);
     assert.strictEqual(parsed.files[0].content, "<h1>Fallback JSON</h1>");
     assert.strictEqual(fetchMockCalls.length, 2);
-    assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
+    assert.strictEqual(fetchMockCalls[0].model, "google/gemini-2.5-flash");
     assert.strictEqual(fetchMockCalls[1].model, "google/gemini-2.5-flash");
   });
 
@@ -169,7 +169,7 @@ describe("AI Fallback Model Integration Tests", () => {
     assert.strictEqual(thrownError.code, "AI_UNAVAILABLE");
     assert.strictEqual(thrownError.message, "AI service temporarily unavailable");
     assert.strictEqual(fetchMockCalls.length, 2);
-    assert.strictEqual(fetchMockCalls[0].model, "deepseek/deepseek-r1");
+    assert.strictEqual(fetchMockCalls[0].model, "google/gemini-2.5-flash");
     assert.strictEqual(fetchMockCalls[1].model, "google/gemini-2.5-flash");
   });
 });

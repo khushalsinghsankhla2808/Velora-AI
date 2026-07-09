@@ -11,32 +11,8 @@ import axios from "axios";
 // ─── AI Model Options ─────────────────────────────────────────────────────────
 const AI_MODELS = [
   {
-    label: "Gemini 2.0 Flash — Fast & Smart",
-    value: "google/gemini-2.0-flash-exp:free",
-  },
-  {
-    label: "DeepSeek R1 — Deep & Detailed",
-    value: "deepseek/deepseek-r1:free",
-  },
-  {
-    label: "Kimi (Moonshot) — Thinking Mode",
-    value: "moonshotai/kimi-vl-a3b-thinking:free",
-  },
-  {
-    label: "MiniMax — Balanced & Dynamic",
-    value: "minimax/minimax-01",
-  },
-  {
-    label: "Qwen 3 235B — High Capacity",
-    value: "qwen/qwen3-235b-a22b:free",
-  },
-  {
-    label: "Llama 4 Maverick — Creative & Expressive",
-    value: "meta-llama/llama-4-maverick:free",
-  },
-  {
-    label: "Mistral Small — Reliable & Quick",
-    value: "mistralai/mistral-small-3.1-24b-instruct:free",
+    label: "Gemini 2.5 Flash — Fast & Smart",
+    value: "google/gemini-2.5-flash",
   },
 ];
 
@@ -162,7 +138,7 @@ const Generate = () => {
 
       {/* Light Beam Effect */}
       <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px]">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-gradient-to-b from-white/20 via-white/10 to-transparent blur-3xl opacity-40 rounded-full" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[300px] bg-gradient-to- b from-white/20 via-white/10 to-transparent blur-3xl opacity-40 rounded-full" />
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[200px] h-[200px] bg-white/20 rounded-full blur-[150px]" />
       </div>
 
@@ -310,7 +286,7 @@ const Generate = () => {
             {/* Bar */}
             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-3">
               <motion.div
-                className="h-full bg-gradient-to-r from-white to-zinc-300 rounded-full"
+                className="h-full bg-gradient-to r from-white to-zinc-300 rounded-full"
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               />

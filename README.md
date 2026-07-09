@@ -199,13 +199,7 @@ Velora-AI/
 │   │
 │   ├── services/
 │   │   └── ai/
-│   │       ├── providerFactory.js    # AI model selector factory
-│   │       ├── openRouterClient.js   # OpenRouter payload dispatcher & failover logic
-│   │       ├── anthropicProvider.js  # Claude integration
-│   │       ├── deepseekProvider.js   # DeepSeek integration
-│   │       ├── geminiProvider.js     # Gemini integration
-│   │       ├── openaiProvider.js     # GPT integration
-│   │       └── kimiProvider.js       # Kimi/MiniMax/Qwen/Llama/Mistral providers...
+│   │       └── geminiClient.js       # Centralized Gemini Flash API client & retry logic
 │   │
 │   ├── controllers/
 │   │   ├── authController.js    # Google OAuth + JWT logic
@@ -433,7 +427,7 @@ VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 ## 🔥 Core Engineering Concepts
 
 - **Prompt Orchestration** — A structured master prompt enforcing a strict JSON output schema, a real design system (CSS custom properties, fluid typography, spacing scale), genuine industry-specific content instead of placeholder text, accessibility (WCAG 2.1 AA), and SEO metadata on every generation.
-- **Dynamic Multi-Model Routing & Failover** — Modularized provider strategy using a `providerFactory` pattern routing payload prompts to DeepSeek, Gemini, OpenAI, Claude, Llama, Mistral, Kimi, MiniMax, or Qwen, with automatic retry/failover checks.
+- **Centralized Gemini Flash Integration** — Centralized client and API integration routing all payload prompts to Google Gemini 2.5 Flash with automatic retry logic.
 - **React/Next.js Scaffolding** — Real-time transpiler converting standard multi-file HTML layouts into structured Vite-React or Next.js directory workspaces complete with Tailwind configurations and routing scripts.
 - **GitHub API Integration** — Seamless Octokit-powered authentication and remote workspace repository commits via sequential Base64 binary pushes.
 - **Workspace Isolation & sandboxed Previewing** — Sandbox secure iframe hosting using relative CSS/JS references resolved via inlined blob bundling.
