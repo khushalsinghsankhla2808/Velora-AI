@@ -21,6 +21,7 @@ const readErrorBody = async (response) => {
 export const callGeminiFlash = async ({
   prompt,
   systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
+  max_tokens = 8192,
 }) => {
   if (!process.env.OPENROUTER_API_KEY) {
     const err = new Error("[geminiClient] OPENROUTER_API_KEY is not set in environment variables.");
@@ -55,6 +56,7 @@ export const callGeminiFlash = async ({
             },
           ],
           temperature: 0.2,
+          max_tokens,
         }),
       });
 
@@ -98,5 +100,6 @@ export const callOpenRouter = async (args) => {
   return callGeminiFlash({
     prompt: args.prompt,
     systemPrompt: args.systemPrompt,
+    max_tokens: args.maxTokens || args.max_tokens || 8192,
   });
 };
