@@ -317,7 +317,7 @@ export default function ChatPanel({
             type="submit"
             aria-label="Send message"
             disabled={updateLoading || !input.trim()}
-            className="p-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-semibold shadow-md shadow-indigo-500/10 transition disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center justify-center shrink-0 w-10 h-10 active:scale-95"
+            className="p-2.5 rounded-xl bg-gradient to r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-semibold shadow-md shadow-indigo-500/10 transition disabled:opacity-40 disabled:pointer-events-none cursor-pointer flex items-center justify-center shrink-0 w-10 h-10 active:scale-95"
           >
             <Send size={15} />
           </button>
