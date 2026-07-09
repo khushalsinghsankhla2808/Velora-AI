@@ -1,6 +1,6 @@
 // PATH: backend/controllers/websiteController.js
 
-import { callOpenRouter } from "../services/ai/geminiClient.js";
+import { geminiComplete, geminiChat, geminiJSON, CHAT_MODEL, BUILD_MODEL } from "../utils/geminiClient.js";
 import extractJson from "../utils/extractJson.js";
 import { Website } from "../models/websiteModel.js";
 import { User } from "../models/userModel.js";
@@ -44,8 +44,9 @@ const CODE_PREFERENCE_INSTRUCTIONS = {
 const ALLOWED_CODE_PREFERENCES = new Set(Object.keys(CODE_PREFERENCE_INSTRUCTIONS));
 
 const validateModel = (model) => {
-    // Automatically resolve all requests to Gemini 2.5 Flash
-    return "google/gemini-2.5-flash";
+    const validModels = new Set(["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"]);
+    if (validModels.has(model)) return model;
+    return CHAT_MODEL;
 };
 
 export const generateWebsite = async (req, res) => {
@@ -114,27 +115,8 @@ OUTPUT FORMAT — **RAW JSON ONLY**:
 }
 `;
 
-        let parsed = null;
-        for (let attempt = 0; attempt < 2; attempt++) {
-            const currentPrompt = attempt === 0 ? masterPrompt : masterPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. NO MARKDOWN. NO BACKTICKS.";
-            const result = await callOpenRouter({
-                prompt: currentPrompt,
-                model: process.env.AI_PRIMARY_MODEL || "google/gemini-2.5-flash",
-                providerName: "Gemini",
-                systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
-            });
-            console.log(`Tokens used: ${result.tokensUsed}`);
-            if (result.success) {
-                parsed = extractJson(result.content);
-                if (parsed && parsed.files) break;
-            }
-        }
-
-        if (!parsed || !parsed.files) {
-            await User.findByIdAndUpdate(req.user._id, { $inc: { credits: GENERATE_COST } });
-            creditsReserved = false;
-            return sendError(res, "INVALID_AI_RESPONSE", "AI returned an invalid response. Please try again.", 400);
-        }
+        const systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.";
+        const parsed = await geminiJSON(systemPrompt, masterPrompt, []);
 
         const website = new Website({
             user: user._id,
@@ -168,10 +150,20 @@ OUTPUT FORMAT — **RAW JSON ONLY**:
             await User.findByIdAndUpdate(req.user._id, { $inc: { credits: GENERATE_COST } });
         }
         console.error("generateWebsite error:", error.message);
-        if (error.code === "AI_UNAVAILABLE") {
-            return sendError(res, "AI_UNAVAILABLE", error.message, 503);
+
+        if (error.message?.includes('quota') || error.message?.includes('429')) {
+            return sendError(res, "AI_QUOTA_EXCEEDED", "Gemini API quota exceeded. Try again later.", 429);
         }
-        return sendError(res, "GENERATION_FAILED", "Server error during generation", 500);
+
+        if (error.message?.includes('API_KEY') || error.status === 401) {
+            return sendError(res, "INVALID_API_KEY", "Invalid Gemini API key.", 401);
+        }
+
+        if (error instanceof SyntaxError) {
+            return sendError(res, "INVALID_AI_RESPONSE", "Gemini returned malformed JSON. Try again.", 500);
+        }
+
+        return sendError(res, "GENERATION_FAILED", error.message, 500);
     }
 };
 
@@ -270,27 +262,8 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 }
 `;
 
-        let parsed = null;
-        for (let attempt = 0; attempt < 2; attempt++) {
-            const currentPrompt = attempt === 0 ? updatePrompt : updatePrompt + "\n\nRETURN ONLY RAW JSON. The JSON must contain a files array.";
-            const result = await callOpenRouter({
-                prompt: currentPrompt,
-                model: process.env.AI_PRIMARY_MODEL || "google/gemini-2.5-flash",
-                providerName: "Gemini",
-                systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
-            });
-            console.log(`Tokens used: ${result.tokensUsed}`);
-            if (result.success) {
-                parsed = extractJson(result.content);
-                if (parsed && parsed.files) break;
-            }
-        }
-
-        if (!parsed || !parsed.files) {
-            await User.findByIdAndUpdate(req.user._id, { $inc: { credits: UPDATE_COST } });
-            creditsReserved = false;
-            return sendError(res, "INVALID_AI_RESPONSE", "AI returned an invalid response. Please try again.", 400);
-        }
+        const systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.";
+        const parsed = await geminiJSON(systemPrompt, updatePrompt, []);
 
         const fileIds = await saveWebsiteFiles(website._id, parsed.files);
         website.files = fileIds;
@@ -320,10 +293,20 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
             await User.findByIdAndUpdate(req.user._id, { $inc: { credits: UPDATE_COST } });
         }
         console.error("changeWebsite error:", error.message);
-        if (error.code === "AI_UNAVAILABLE") {
-            return sendError(res, "AI_UNAVAILABLE", error.message, 503);
+
+        if (error.message?.includes('quota') || error.message?.includes('429')) {
+            return sendError(res, "AI_QUOTA_EXCEEDED", "Gemini API quota exceeded. Try again later.", 429);
         }
-        return sendError(res, "UPDATE_FAILED", "Server error during update", 500);
+
+        if (error.message?.includes('API_KEY') || error.status === 401) {
+            return sendError(res, "INVALID_API_KEY", "Invalid Gemini API key.", 401);
+        }
+
+        if (error instanceof SyntaxError) {
+            return sendError(res, "INVALID_AI_RESPONSE", "Gemini returned malformed JSON. Try again.", 500);
+        }
+
+        return sendError(res, "UPDATE_FAILED", error.message, 500);
     }
 };
 
@@ -754,28 +737,8 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 If you do not need to modify any files, return an empty "files" array.
 `;
 
-    let parsed = null;
-    let result = null;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const currentPrompt = attempt === 0 ? chatPrompt : chatPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. NO MARKDOWN. NO BACKTICKS.";
-      result = await callOpenRouter({
-        prompt: currentPrompt,
-        model: process.env.AI_PRIMARY_MODEL || "google/gemini-2.5-flash",
-        providerName: "Gemini",
-        systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
-      });
-      console.log(`Tokens used: ${result.tokensUsed}`);
-      if (result.success) {
-        parsed = extractJson(result.content);
-        if (parsed && parsed.files) break;
-      }
-    }
-
-    if (!parsed || !parsed.files) {
-      await User.findByIdAndUpdate(req.user._id, { $inc: { credits: CHAT_COST } });
-      creditsReserved = false;
-      return sendError(res, "INVALID_AI_RESPONSE", "AI returned an invalid response. Please try again.", 400);
-    }
+    const systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.";
+    const parsed = await geminiJSON(systemPrompt, chatPrompt, []);
 
     // Path traversal and validation check
     for (const file of parsed.files) {
@@ -813,7 +776,7 @@ If you do not need to modify any files, return an empty "files" array.
     return sendSuccess(res, {
       message: parsed.message || "I have proposed updates to your files.",
       filesChanged,
-      tokensUsed: (result && result.tokensUsed) || 0,
+      tokensUsed: 0,
     });
 
   } catch (error) {
@@ -821,10 +784,20 @@ If you do not need to modify any files, return an empty "files" array.
       await User.findByIdAndUpdate(req.user._id, { $inc: { credits: CHAT_COST } });
     }
     console.error("targetedChatEdit error:", error.message);
-    if (error.code === "AI_UNAVAILABLE") {
-      return sendError(res, "AI_UNAVAILABLE", error.message, 503);
+
+    if (error.message?.includes('quota') || error.message?.includes('429')) {
+      return sendError(res, "AI_QUOTA_EXCEEDED", "Gemini API quota exceeded. Try again later.", 429);
     }
-    return sendError(res, "CHAT_EDIT_FAILED", "Server error during chat edit", 500);
+
+    if (error.message?.includes('API_KEY') || error.status === 401) {
+      return sendError(res, "INVALID_API_KEY", "Invalid Gemini API key.", 401);
+    }
+
+    if (error instanceof SyntaxError) {
+      return sendError(res, "INVALID_AI_RESPONSE", "Gemini returned malformed JSON. Try again.", 400);
+    }
+
+    return sendError(res, "CHAT_EDIT_FAILED", error.message, 500);
   }
 };
 
@@ -1262,23 +1235,27 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 }
 `;
 
-    const result = await callOpenRouter({
-      prompt: analysisPrompt,
-      model: "google/gemini-2.5-flash",
-      providerName: "Gemini",
-      systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
-    });
-
-    if (result.success) {
-      const parsed = extractJson(result.content);
-      if (parsed) {
-        return sendSuccess(res, parsed);
-      }
-    }
-    return sendError(res, "ANALYSIS_FAILED", "AI returned an invalid analysis. Please try again.", 400);
+    const systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks.";
+    const model = req.body.model || CHAT_MODEL;
+    const text = await geminiComplete(systemPrompt, analysisPrompt, model);
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    return sendSuccess(res, parsed);
   } catch (error) {
     console.error("analyzeStack error:", error.message);
-    return sendError(res, "SERVER_ERROR", "Server error during stack analysis", 500);
+
+    if (error.message?.includes('quota') || error.message?.includes('429')) {
+      return sendError(res, "AI_QUOTA_EXCEEDED", "Gemini API quota exceeded. Try again later.", 429);
+    }
+
+    if (error.message?.includes('API_KEY') || error.status === 401) {
+      return sendError(res, "INVALID_API_KEY", "Invalid Gemini API key.", 401);
+    }
+
+    if (error instanceof SyntaxError) {
+      return sendError(res, "INVALID_AI_RESPONSE", "Gemini returned malformed JSON. Try again.", 500);
+    }
+
+    return sendError(res, "SERVER_ERROR", error.message, 500);
   }
 };
 
@@ -1534,24 +1511,10 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 }
 `;
 
-    let parsed = null;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const currentPrompt = attempt === 0 ? debuggerPrompt : debuggerPrompt + "\n\nCRITICAL: RETURN ONLY RAW JSON. The JSON must contain a files array.";
-      const result = await callOpenRouter({
-        prompt: currentPrompt,
-        model: "google/gemini-2.5-flash",
-        providerName: "Gemini",
-        systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.",
-      });
-      if (result.success) {
-        parsed = extractJson(result.content);
-        if (parsed && parsed.files) break;
-      }
-    }
-
-    if (!parsed || !parsed.files) {
-      return sendError(res, "DEBUG_FAILED", "AI failed to generate structural debug proposal.", 400);
-    }
+    const systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks. The JSON must contain a files array.";
+    const model = req.body.model || CHAT_MODEL;
+    const text = await geminiComplete(systemPrompt, debuggerPrompt, model);
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
 
     // Prepare filesChanged structure for DiffPreviewModal
     const filesChanged = [];
@@ -1571,7 +1534,20 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
     });
   } catch (error) {
     console.error("debugWebsite error:", error.message);
-    return sendError(res, "SERVER_ERROR", "Server error during debug repair", 500);
+
+    if (error.message?.includes('quota') || error.message?.includes('429')) {
+      return sendError(res, "AI_QUOTA_EXCEEDED", "Gemini API quota exceeded. Try again later.", 429);
+    }
+
+    if (error.message?.includes('API_KEY') || error.status === 401) {
+      return sendError(res, "INVALID_API_KEY", "Invalid Gemini API key.", 401);
+    }
+
+    if (error instanceof SyntaxError) {
+      return sendError(res, "INVALID_AI_RESPONSE", "Gemini returned malformed JSON. Try again.", 500);
+    }
+
+    return sendError(res, "SERVER_ERROR", error.message, 500);
   }
 };
 
@@ -2042,24 +2018,27 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 }
 `;
 
-    const result = await callOpenRouter({
-      prompt: auditPrompt,
-      model: "google/gemini-2.5-flash",
-      providerName: "Gemini",
-      systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
-    });
-
-    if (result.success) {
-      const parsed = extractJson(result.content);
-      if (parsed) {
-        return sendSuccess(res, parsed);
-      }
-    }
-
-    return sendError(res, "AUDIT_FAILED", "AI failed to generate a formatted audit report.", 400);
+    const systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks.";
+    const model = req.body.model || CHAT_MODEL;
+    const text = await geminiComplete(systemPrompt, auditPrompt, model);
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    return sendSuccess(res, parsed);
   } catch (error) {
     console.error("auditWebsite error:", error.message);
-    return sendError(res, "SERVER_ERROR", "Server error during AI audit", 500);
+
+    if (error.message?.includes('quota') || error.message?.includes('429')) {
+      return sendError(res, "AI_QUOTA_EXCEEDED", "Gemini API quota exceeded. Try again later.", 429);
+    }
+
+    if (error.message?.includes('API_KEY') || error.status === 401) {
+      return sendError(res, "INVALID_API_KEY", "Invalid Gemini API key.", 401);
+    }
+
+    if (error instanceof SyntaxError) {
+      return sendError(res, "INVALID_AI_RESPONSE", "Gemini returned malformed JSON. Try again.", 500);
+    }
+
+    return sendError(res, "SERVER_ERROR", error.message, 500);
   }
 };
 
@@ -2111,31 +2090,35 @@ OUTPUT FORMAT — RETURN RAW JSON ONLY. NO MARKDOWN. NO BACKTICKS:
 }
 `;
 
-    const result = await callOpenRouter({
-      prompt: brandPrompt,
-      model: "google/gemini-2.5-flash",
-      providerName: "Gemini",
-      systemPrompt: "You must return only valid raw JSON. No markdown. No explanation. No code blocks.",
-    });
+    const systemPrompt = "You must return only valid raw JSON. No markdown. No explanation. No code blocks.";
+    const model = req.body.model || CHAT_MODEL;
+    const text = await geminiComplete(systemPrompt, brandPrompt, model);
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
 
-    if (result.success) {
-      const parsed = extractJson(result.content);
-      if (parsed) {
-        // Save the brand details to project metadata
-        website.brand = {
-          colors: [parsed.colors.primary, parsed.colors.secondary, parsed.colors.background],
-          font: parsed.typography.bodyFont,
-          logoUrl: "", // metadata suggestion only
-        };
-        await website.save();
+    // Save the brand details to project metadata
+    website.brand = {
+      colors: [parsed.colors.primary, parsed.colors.secondary, parsed.colors.background],
+      font: parsed.typography.bodyFont,
+      logoUrl: "", // metadata suggestion only
+    };
+    await website.save();
 
-        return sendSuccess(res, parsed);
-      }
-    }
-
-    return sendError(res, "BRAND_FAILED", "AI failed to generate a formatted brand configuration.", 400);
+    return sendSuccess(res, parsed);
   } catch (error) {
     console.error("generateBrand error:", error.message);
-    return sendError(res, "SERVER_ERROR", "Server error during brand generation", 500);
+
+    if (error.message?.includes('quota') || error.message?.includes('429')) {
+      return sendError(res, "AI_QUOTA_EXCEEDED", "Gemini API quota exceeded. Try again later.", 429);
+    }
+
+    if (error.message?.includes('API_KEY') || error.status === 401) {
+      return sendError(res, "INVALID_API_KEY", "Invalid Gemini API key.", 401);
+    }
+
+    if (error instanceof SyntaxError) {
+      return sendError(res, "INVALID_AI_RESPONSE", "Gemini returned malformed JSON. Try again.", 500);
+    }
+
+    return sendError(res, "SERVER_ERROR", error.message, 500);
   }
 };

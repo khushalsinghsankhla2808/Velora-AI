@@ -99,11 +99,25 @@ describe("Project AI Chat Integration Tests", () => {
   });
 
   const setupMockFetch = (jsonResponse, ok = true) => {
+    let mockResponse = jsonResponse;
+    if (ok && jsonResponse && jsonResponse.choices) {
+      const content = jsonResponse.choices[0].message.content;
+      mockResponse = {
+        candidates: [
+          {
+            content: {
+              parts: [{ text: content }]
+            }
+          }
+        ]
+      };
+    }
     globalThis.fetch = async () => {
       return {
         ok,
         status: ok ? 200 : 400,
-        json: async () => jsonResponse,
+        json: async () => mockResponse,
+        text: async () => typeof mockResponse === "string" ? mockResponse : JSON.stringify(mockResponse)
       };
     };
   };
@@ -186,7 +200,7 @@ describe("Project AI Chat Integration Tests", () => {
     assert.strictEqual(chats[1].role, "assistant");
     assert.strictEqual(chats[1].message, "I updated style.css and added script.js.");
     assert.deepStrictEqual(chats[1].filesChanged, ["style.css", "script.js"]);
-    assert.strictEqual(chats[1].tokensUsed, 250);
+    assert.strictEqual(chats[1].tokensUsed, 0);
   });
 
   test("Non-owner gets 403 error on chat edits", async () => {

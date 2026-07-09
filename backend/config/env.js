@@ -1,6 +1,6 @@
 // PATH: backend/config/env.js
 
-const requiredBaseEnv = ["MONGO_URI", "JWT_SECRET", "OPENROUTER_API_KEY"];
+const requiredBaseEnv = ["MONGO_URI", "JWT_SECRET", "GEMINI_API_KEY"];
 const requiredProductionEnv = [
   "CLIENT_URL",
   "FRONTEND_URL",

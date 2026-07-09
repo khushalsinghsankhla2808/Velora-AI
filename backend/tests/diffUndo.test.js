@@ -99,11 +99,25 @@ describe("AI Chat Diff Preview and Undo Integration Tests", () => {
   });
 
   const setupMockFetch = (jsonResponse, ok = true) => {
+    let mockResponse = jsonResponse;
+    if (ok && jsonResponse && jsonResponse.choices) {
+      const content = jsonResponse.choices[0].message.content;
+      mockResponse = {
+        candidates: [
+          {
+            content: {
+              parts: [{ text: content }]
+            }
+          }
+        ]
+      };
+    }
     globalThis.fetch = async () => {
       return {
         ok,
         status: ok ? 200 : 400,
-        json: async () => jsonResponse,
+        json: async () => mockResponse,
+        text: async () => typeof mockResponse === "string" ? mockResponse : JSON.stringify(mockResponse)
       };
     };
   };
