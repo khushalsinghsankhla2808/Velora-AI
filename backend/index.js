@@ -41,8 +41,27 @@ app.use((req, res, next) => {
 // ======================================
 // CORS
 // ======================================
-app.use(cors(corsOptions));
-// (Express 5: skip app.options wildcard here to avoid path-to-regexp errors)
+const allowedOrigins = [
+  'https://velora-builder.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Handle preflight for ALL routes
+app.options(/(.*)/, cors());
 
 
 
