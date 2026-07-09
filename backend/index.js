@@ -11,6 +11,7 @@ import authRoute from "./routes/authRoutes.js";
 import websiteRoute from "./routes/websiteRoute.js";
 import paymentRoute from "./routes/paymentRoute.js";
 import creditRoute from "./routes/creditRoute.js";
+import generateWebsiteRouter from "./routes/generateWebsite.js";
 import { corsOptions, globalLimiter, securityHeaders } from "./middlewares/security.js";
 import { sendError } from "./utils/apiResponse.js";
 
@@ -65,6 +66,7 @@ app.use("/api/auth", authRoute);
 app.use("/api/website", websiteRoute);
 app.use("/api/payment", paymentRoute);
 app.use("/api/credits", creditRoute);
+app.use("/api/generate-website", generateWebsiteRouter);
 
 // ======================================
 // Global Error Handler

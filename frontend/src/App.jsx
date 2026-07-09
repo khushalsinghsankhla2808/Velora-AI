@@ -11,6 +11,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 const Generate = lazy(() => import("./pages/Generate"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const WebsiteEditor = lazy(() => import("./pages/WebsiteEditor"));
+const BuildPage = lazy(() => import("./pages/BuildPage"));
 
 const ProtectedRoute = ({ children }) => {
   const { userData } = useSelector((state) => state.user);
@@ -54,6 +55,16 @@ function App() {
               <ProtectedRoute>
                 <ErrorBoundary>
                   <WebsiteEditor />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/build"
+            element={
+              <ProtectedRoute>
+                <ErrorBoundary>
+                  <BuildPage />
                 </ErrorBoundary>
               </ProtectedRoute>
             }
