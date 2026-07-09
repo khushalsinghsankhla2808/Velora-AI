@@ -286,7 +286,7 @@ const Generate = () => {
             {/* Bar */}
             <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden mb-3">
               <motion.div
-                className="h-full bg-gradient-to r from-white to-zinc-300 rounded-full"
+                className="h-full bg-gradient-to-r from-white to-zinc-300 rounded-full"
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               />

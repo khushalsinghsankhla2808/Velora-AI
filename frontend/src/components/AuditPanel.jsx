@@ -82,7 +82,7 @@ export default function AuditPanel({ projectId }) {
             </div>
             <button
               onClick={handleRunAudit}
-              className="bg-gradient-to r from-indigo-500 to-purple-500 text-white font-semibold px-5 py-2.5 rounded-xl flex items-center gap-1.5 hover:from-indigo-600 hover:to-purple-600 transition cursor-pointer active:scale-95 shadow-lg shadow-purple-500/10"
+              className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold px-5 py-2.5 rounded-xl flex items-center gap-1.5 hover:from-indigo-600 hover:to-purple-600 transition cursor-pointer active:scale-95 shadow-lg shadow-purple-500/10"
             >
               <Play size={12} fill="white" /> Run Full Audit
             </button>
