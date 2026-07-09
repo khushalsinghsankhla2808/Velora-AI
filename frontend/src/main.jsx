@@ -9,6 +9,7 @@ import store from './redux/store'
 import { PersistGate } from 'redux-persist/integration/react'
 import { persistStore } from 'redux-persist'
 import axios from 'axios'
+import { removeUserData } from './redux/userSlice'
 
 // Configure global Axios interceptor for Bearer token fallback auth
 axios.interceptors.request.use(
@@ -29,6 +30,21 @@ axios.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Configure global Axios interceptor for handling 401 Invalid Token redirects
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      const errCode = error.response.data?.error?.code;
+      if (errCode === "INVALID_TOKEN" || errCode === "TOKEN_NOT_FOUND" || errCode === "USER_NOT_FOUND") {
+        store.dispatch(removeUserData());
+        window.location.href = "/";
+      }
+    }
     return Promise.reject(error);
   }
 );
