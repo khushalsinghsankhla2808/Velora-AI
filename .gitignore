@@ -17,7 +17,7 @@ frontend/AGENTS.md
 
 # Build Files
 dist/
-build/
+/build/
 
 # Logs
 *.log
