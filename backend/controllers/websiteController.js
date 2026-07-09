@@ -42,8 +42,8 @@ const CODE_PREFERENCE_INSTRUCTIONS = {
 };
 
 const validateModel = (model) => {
-    if (!model) return "google/gemini-2.5-flash";
-    return ALLOWED_MODELS.has(model) ? model : null;
+    // Automatically resolve all requests to Gemini 2.5 Flash
+    return "google/gemini-2.5-flash";
 };
 
 export const generateWebsite = async (req, res) => {
