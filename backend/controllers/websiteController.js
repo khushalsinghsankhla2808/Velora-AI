@@ -68,7 +68,7 @@ export const generateWebsite = async (req, res) => {
         const user = await User.findOneAndUpdate(
             { _id: req.user._id, credits: { $gte: GENERATE_COST } },
             { $inc: { credits: -GENERATE_COST } },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!user) {
@@ -228,7 +228,7 @@ export const changeWebsite = async (req, res) => {
         const user = await User.findOneAndUpdate(
             { _id: req.user._id, credits: { $gte: UPDATE_COST } },
             { $inc: { credits: -UPDATE_COST } },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         if (!user) return sendError(res, "INSUFFICIENT_CREDITS", "Not enough credits. Minimum 5 credits required.", 400);
@@ -712,7 +712,7 @@ export const targetedChatEdit = async (req, res) => {
     const user = await User.findOneAndUpdate(
       { _id: req.user._id, credits: { $gte: CHAT_COST } },
       { $inc: { credits: -CHAT_COST } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!user) {
@@ -1074,7 +1074,7 @@ export const acceptChatEdit = async (req, res) => {
     const user = await User.findOneAndUpdate(
       { _id: req.user._id, credits: { $gte: CHAT_COST } },
       { $inc: { credits: -CHAT_COST } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!user) {

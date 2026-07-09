@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "npm run test:jest && npm run test:native",
+    "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:native": "node --test tests/aiClient.test.js tests/aiConfig.test.js tests/chat.test.js tests/diffUndo.test.js tests/export.test.js tests/files.test.js tests/multiFile.test.js tests/rateLimit.test.js tests/validation.test.js"
   },
   "author": "",
   "license": "ISC",

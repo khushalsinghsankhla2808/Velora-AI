@@ -117,7 +117,7 @@ export const verifyPayment = async (req, res) => {
       const updatedUser = await User.findByIdAndUpdate(
         payment.userId,
         { $inc: { credits: payment.credits }, $set: { plan: payment.planId } },
-        { new: true, session },
+        { returnDocument: "after", session },
       );
 
       if (!updatedUser) {
