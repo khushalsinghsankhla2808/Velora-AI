@@ -2,27 +2,29 @@
 
 export const AI_MODELS = [
   {
-    id: "gemini-2.0-flash",
-    label: "Gemini 2.0 Flash",
-    provider: "gemini",
-    providerModel: "google/gemini-2.0-flash",
+    id: "mistral-large",
+    label: "Mistral Large",
+    provider: "mistral",
+    providerModel: "mistral-large-latest",
     credits: 5,
   },
 ];
 
 export const LEGACY_MODEL_MAP = {
-  "google/gemini-2.0-flash-exp:free": "gemini-2.0-flash",
-  "deepseek/deepseek-r1:free": "gemini-2.0-flash",
-  "meta-llama/llama-4-maverick:free": "gemini-2.0-flash",
-  "mistralai/mistral-small-3.1-24b-instruct:free": "gemini-2.0-flash",
-  "google/gemini-2.5-pro": "gemini-2.0-flash",
-  "google/gemini-2.5-flash": "gemini-2.0-flash",
-  "gpt-5.5": "gemini-2.0-flash",
-  "claude-sonnet": "gemini-2.0-flash",
-  "claude-opus": "gemini-2.0-flash",
-  "deepseek-v3": "gemini-2.0-flash",
-  "llama": "gemini-2.0-flash",
-  "qwen": "gemini-2.0-flash",
+  "local-builder": "mistral-large",
+  "gemini-2.0-flash": "mistral-large",
+  "google/gemini-2.0-flash-exp:free": "mistral-large",
+  "deepseek/deepseek-r1:free": "mistral-large",
+  "meta-llama/llama-4-maverick:free": "mistral-large",
+  "mistralai/mistral-small-3.1-24b-instruct:free": "mistral-large",
+  "google/gemini-2.5-pro": "mistral-large",
+  "google/gemini-2.5-flash": "mistral-large",
+  "gpt-5.5": "mistral-large",
+  "claude-sonnet": "mistral-large",
+  "claude-opus": "mistral-large",
+  "deepseek-v3": "mistral-large",
+  "llama": "mistral-large",
+  "qwen": "mistral-large",
 };
 
 export const FRAMEWORKS = [
@@ -61,7 +63,7 @@ export const COMPLEXITY_LEVELS = [
 ];
 
 export const DEFAULT_GENERATION_SETTINGS = {
-  aiModel: "gemini-2.0-flash",
+  aiModel: "mistral-large",
   framework: "html",
   styling: "custom-css",
   backend: "none",

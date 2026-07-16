@@ -1,6 +1,6 @@
 // PATH: backend/controllers/websiteController.js
 
-import { geminiComplete, geminiChat, geminiJSON, geminiGenerate, CHAT_MODEL, BUILD_MODEL } from "../utils/geminiClient.js";
+import { mistralComplete as geminiComplete, mistralChat as geminiChat, mistralJSON as geminiJSON, mistralGenerate as geminiGenerate, CHAT_MODEL, BUILD_MODEL } from "../utils/mistralClient.js";
 import { buildWebsiteGenSystemPrompt } from "../utils/websiteGenPrompt.js";
 import extractJson from "../utils/extractJson.js";
 import { Website } from "../models/websiteModel.js";
@@ -20,9 +20,11 @@ import { Octokit } from "@octokit/rest";
 const GENERATE_COST = 10;
 const UPDATE_COST = 5;
 
-// ✅ Updated to allow only Gemini 2.0 Flash
+// ✅ Updated to allow only Local Offline Builder
 const ALLOWED_MODELS = new Set([
     "google/gemini-2.0-flash",
+    "local/offline-builder",
+    "local-builder",
 ]);
 
 // ✅ Language-specific instructions injected into the master prompt
@@ -36,7 +38,7 @@ const CODE_PREFERENCE_INSTRUCTIONS = {
 const ALLOWED_CODE_PREFERENCES = new Set(Object.keys(CODE_PREFERENCE_INSTRUCTIONS));
 
 const validateModel = (model) => {
-    const validModels = new Set(["gemini-2.0-flash"]);
+    const validModels = new Set(["gemini-2.0-flash", "local-builder"]);
     if (validModels.has(model)) return model;
     return CHAT_MODEL;
 };

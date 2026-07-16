@@ -8,8 +8,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { setUserData } from "../redux/userSlice";
 import axios from "axios";
 
-// No model selector — Gemini 2.0 Flash is used for all generations
-const MODEL = 'gemini-2.0-flash';
+// No model selector — Mistral Large is used for all generations
+const MODEL = 'mistral-large';
 
 // ─── Tech Stack Options ───────────────────────────────────────────────────────
 const LANGUAGES = [
@@ -71,7 +71,6 @@ const Generate = () => {
     if (!prompt.trim()) return;
 
     try {
-      loading = true;
       setLoading(true);
       setError("");
       setProgress(0); // ✅ reset here instead

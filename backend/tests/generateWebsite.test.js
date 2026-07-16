@@ -36,7 +36,7 @@ describe("Generate Website API Endpoint Tests", () => {
     };
   };
 
-  test("should generate website HTML content using Gemini model", async () => {
+  test("should generate website HTML content using Mistral model", async () => {
     setupFetchMock([
       {
         ok: true,
@@ -62,7 +62,7 @@ describe("Generate Website API Endpoint Tests", () => {
 
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.body.html, "<html><body><h1>Coffee Shop</h1></body></html>");
-    assert.ok(fetchMockCalls[0].url.includes("generativelanguage.googleapis.com"));
+    assert.ok(fetchMockCalls[0].url.includes("api.mistral.ai"));
   });
 });
 

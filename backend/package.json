@@ -8,13 +8,13 @@
     "start": "node index.js",
     "test": "npm run test:jest && npm run test:native",
     "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "test:native": "node --test tests/geminiClient.test.js tests/generateWebsite.test.js tests/chat.test.js tests/diffUndo.test.js tests/export.test.js tests/files.test.js tests/multiFile.test.js tests/rateLimit.test.js tests/validation.test.js"
+    "test:native": "node --test tests/mistralClient.test.js tests/generateWebsite.test.js tests/chat.test.js tests/diffUndo.test.js tests/export.test.js tests/files.test.js tests/multiFile.test.js tests/rateLimit.test.js tests/validation.test.js"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@mistralai/mistralai": "^2.4.1",
     "@octokit/rest": "^22.0.1",
     "archiver": "^8.0.0",
     "cookie-parser": "^1.4.7",

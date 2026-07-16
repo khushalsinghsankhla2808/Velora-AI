@@ -36,7 +36,7 @@ const CODE_OPTIONS = [
 ];
 
 const EDITOR_MODELS = [
-  { label: "Gemini 2.5 Flash",  value: "google/gemini-2.5-flash" },
+  { label: "Mistral Large",  value: "mistral-large" },
 ];
 
 const thinkingSteps = [

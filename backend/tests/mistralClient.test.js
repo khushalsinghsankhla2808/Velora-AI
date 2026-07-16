@@ -4,13 +4,13 @@ import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 
 // Ensure a mock key is set for testing
-if (!process.env.GEMINI_API_KEY) {
-  process.env.GEMINI_API_KEY = "mock-gemini-key";
+if (!process.env.MISTRAL_API_KEY) {
+  process.env.MISTRAL_API_KEY = "mock-mistral-key";
 }
 
-import { geminiComplete, geminiChat, geminiJSON } from "../utils/geminiClient.js";
+import { mistralComplete, mistralChat, mistralJSON } from "../utils/mistralClient.js";
 
-describe("Gemini Client Utility Tests", () => {
+describe("Mistral Client Utility Tests", () => {
   const originalFetch = globalThis.fetch;
   let fetchMockCalls = [];
 
@@ -42,15 +42,15 @@ describe("Gemini Client Utility Tests", () => {
     };
   };
 
-  test("geminiComplete returns text content correctly", async () => {
+  test("mistralComplete returns text content correctly", async () => {
     setupFetchMock([
       {
         ok: true,
         json: {
-          candidates: [
+          choices: [
             {
-              content: {
-                parts: [{ text: "Hello from Gemini" }]
+              message: {
+                content: "Hello from Mistral"
               }
             }
           ]
@@ -58,21 +58,21 @@ describe("Gemini Client Utility Tests", () => {
       }
     ]);
 
-    const res = await geminiComplete("system instruction", "user message");
-    assert.strictEqual(res, "Hello from Gemini");
+    const res = await mistralComplete("system instruction", "user message");
+    assert.strictEqual(res, "Hello from Mistral");
     assert.strictEqual(fetchMockCalls.length, 1);
-    assert.ok(fetchMockCalls[0].url.includes("generativelanguage.googleapis.com"));
+    assert.ok(fetchMockCalls[0].url.includes("api.mistral.ai"));
   });
 
-  test("geminiChat translates messages and handles multi-turn response", async () => {
+  test("mistralChat translates messages and handles multi-turn response", async () => {
     setupFetchMock([
       {
         ok: true,
         json: {
-          candidates: [
+          choices: [
             {
-              content: {
-                parts: [{ text: "Chat conversation response" }]
+              message: {
+                content: "Chat conversation response"
               }
             }
           ]
@@ -80,20 +80,21 @@ describe("Gemini Client Utility Tests", () => {
       }
     ]);
 
-    const res = await geminiChat("system", [{ role: "user", content: "hi" }], "hello");
+    const res = await mistralChat("system", [{ role: "user", content: "hi" }], "hello");
     assert.strictEqual(res, "Chat conversation response");
     assert.strictEqual(fetchMockCalls.length, 1);
+    assert.ok(fetchMockCalls[0].url.includes("api.mistral.ai"));
   });
 
-  test("geminiJSON strips markdown and parses clean JSON object", async () => {
+  test("mistralJSON strips markdown and parses clean JSON object", async () => {
     setupFetchMock([
       {
         ok: true,
         json: {
-          candidates: [
+          choices: [
             {
-              content: {
-                parts: [{ text: "```json\n{\n  \"files\": []\n}\n```" }]
+              message: {
+                content: "```json\n{\n  \"files\": []\n}\n```"
               }
             }
           ]
@@ -101,8 +102,9 @@ describe("Gemini Client Utility Tests", () => {
       }
     ]);
 
-    const res = await geminiJSON("system", "prompt");
+    const res = await mistralJSON("system", "prompt");
     assert.deepStrictEqual(res, { files: [] });
     assert.strictEqual(fetchMockCalls.length, 1);
+    assert.ok(fetchMockCalls[0].url.includes("api.mistral.ai"));
   });
 });

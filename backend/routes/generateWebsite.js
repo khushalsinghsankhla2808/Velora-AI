@@ -1,6 +1,6 @@
 // PATH: backend/routes/generateWebsite.js
 import express from 'express';
-import { geminiGenerate } from '../utils/geminiClient.js';
+import { mistralGenerate } from '../utils/mistralClient.js';
 import { buildWebsiteGenSystemPrompt } from '../utils/websiteGenPrompt.js';
 
 
@@ -39,13 +39,13 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    // Generate website single HTML content via native Gemini API
+    // Generate website single HTML content via native Mistral API
     const lastUserMessage = messages[messages.length - 1].content;
-    const geminiHistory = messages.slice(1, -1).map(msg => ({
+    const mistralHistory = messages.slice(1, -1).map(msg => ({
       role: msg.role === 'model' || msg.role === 'assistant' ? 'model' : 'user',
       content: msg.content
     }));
-    const rawHtml = await geminiGenerate(systemPrompt, geminiHistory, lastUserMessage);
+    const rawHtml = await mistralGenerate(systemPrompt, mistralHistory, lastUserMessage);
     const cleanHtml = rawHtml.replace(/```html|```/g, '').trim();
 
     res.json({ html: cleanHtml });
