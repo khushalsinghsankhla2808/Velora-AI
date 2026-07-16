@@ -92,6 +92,22 @@ Unlike traditional drag-and-drop builders, Velora AI explores **autonomous websi
 
 ---
 
+## 🛠️ Recent Improvements & Bug Fixes
+
+Here are the details of the updates made recently to ensure stability, browser compatibility, and seamless authentication:
+
+### 🔒 Firebase Auth & Security Headers Optimization
+* **Problem:** Users experienced an `auth/popup-closed-by-user` error when attempting to sign in using Google. This occurred because the default security headers configured the browser for strict isolation (`Cross-Origin-Opener-Policy: same-origin`), blocking communication between the authentication popup and the main application.
+* **Solution:** Switched the `Cross-Origin-Opener-Policy` configuration to `same-origin-allow-popups` and removed the restrictive `Cross-Origin-Embedder-Policy: require-corp` header. This was updated in:
+  - `frontend/vercel.json` (for production on Vercel)
+  - `frontend/vite.config.js` (for local development)
+
+### 🎨 Asset Isolation (Embedded Google Logo SVG)
+* **Problem:** The Google "G" logo inside the sign-in modal was being loaded from an external URL (Wikimedia Commons), which was blocked under certain browser same-origin policies with a `NotSameOriginAfterDefaultedToSameOriginByCoep` error.
+* **Solution:** Embedded a clean, inline, high-fidelity SVG path for the Google G logo directly inside [LoginModal.jsx](file:///d:/AI%20Website%20Builder%20with%20MERN%20Stack/frontend/src/components/LoginModal.jsx). This guarantees immediate rendering with zero external network requests or policy violations.
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Frontend
@@ -435,7 +451,7 @@ VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 - **Audit Reports & Core Web Vitals** — Fully automated, multi-category Google Lighthouse mock metrics measuring SEO, a11y, performance, and responsive elements with fix instructions.
 - **AI-Powered Brand Kits** — Dynamic style parameterization utilizing AI to generate harmonious styles and color schemes, injecting them as runtime CSS custom properties.
 - **HMAC Payment Audits** — Verification of Razorpay Webhook signatures via node `crypto` hash generation.
-- **Google OAuth & JWT Cookie Security** — Secure HttpOnly cookie auth preventing cross-site scripting (XSS) token extraction.
+- **Google OAuth & JWT Cookie Security** — Secure HttpOnly cookie auth preventing cross-site scripting (XSS) token extraction. Configured Cross-Origin-Opener-Policy (`same-origin-allow-popups`) header to ensure the Google Auth popup window communicates successfully with the parent workspace.
 
 ---
 
